@@ -5,24 +5,44 @@ import logging
 import ujson
 import re
 import sqlite3
+import config
+import cherrypy
+import time
 
-bot = telebot.TeleBot(token = '495038140:AAHVdOnVja8EEb9LR8qlmhsCbRiS2imSkC4')
+WEBHOOK_HOST = '109.173.73.120'
+WEBHOOK_PORT = 443  # 443, 80, 88 или 8443 (порт должен быть открыт!)
+WEBHOOK_LISTEN = '0.0.0.0'  # На некоторых серверах придется указывать такой же IP, что и выше
+
+WEBHOOK_SSL_CERT = './webhook_cert.pem'  # Путь к сертификату
+WEBHOOK_SSL_PRIV = './webhook_pkey.pem'  # Путь к приватному ключу
+
+WEBHOOK_URL_BASE = "https://%s:%s" % (WEBHOOK_HOST, WEBHOOK_PORT)
+WEBHOOK_URL_PATH = "/%s/" % (config.token)
+
+bot = telebot.TeleBot(token = config.token)
+
+class WebhookServer(object):
+    @cherrypy.expose
+    def index(self):
+        if 'content-length' in cherrypy.request.headers and \
+                        'content-type' in cherrypy.request.headers and \
+                        cherrypy.request.headers['content-type'] == 'application/json':
+            length = int(cherrypy.request.headers['content-length'])
+            json_string = cherrypy.request.body.read(length).decode("utf-8")
+            update = telebot.types.Update.de_json(json_string)
+            bot.process_new_updates([update])
+            return ''
+        else:
+            raise cherrypy.HTTPError(403)
 
 logging.basicConfig(
                     format='%(filename)s [LINE:%(lineno)-3d]# %(levelname)-8s - %(name)-9s [%(asctime)s] - %(message)-50s ',
                     datefmt='%m/%d/%Y %I:%M:%S %p'
 )
 
-restricted_stickers = [
-    'CAADBAADAgAD5WdgGP8_mtUfmHTUAg',
-    'CAADAgADFQAD3kedFhWDQDF4LJsdAg',
-    'CAADAgADJgAD3kedFjtizHvpvTKGAg'
-]
-
-restricted_packs = [
-    's408971237_by_fStikBot',
-    'konfaleto2016'
-]
+cherrypy.config.update({'log.screen': False,
+                        'log.access_file': '',
+                        'log.error_file': ''})
 
 def bot_send(msg):
     mesg = '```\n%s\n```' % ujson.dumps(msg, indent = 4, ensure_ascii=False)
@@ -38,7 +58,6 @@ def bot_send(msg):
     for i in srts:
         mesg = mesg + i + '\n'
     bot.send_message(msg.chat.id, mesg, parse_mode='Markdown')
-
 
 class DataConn:
     def __init__(self, db_name):
@@ -65,6 +84,83 @@ def add_to_DB(msg):
             cursor.execute(sql)
             conn.commit()
 
+def register_new_chat(msg):
+    with DataConn('db.db') as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM chats WHERE ChatID = {}'.format(str(msg.chat.id))
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        if res is None:
+            for i in bot.get_chat_administrators(msg.chat.id):
+                sql = 'INSERT INTO chats VALUES({}, {})'.format(str(msg.chat.id), str(i.user.id))
+                cursor.execute(sql)
+                conn.commit()
+
+def register_new_user(msg):
+    with DataConn('db.db') as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM users WHERE UserID = {}'.format(int(msg.chat.id))
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        if cursor is None:
+            sql = 'INSERT INTO users VALUES({})'.format(int(msg.chat.id))
+            cursor.execute(sql)
+            conn.commit()    
+
+def parse_time(string):
+    l = re.split(' ', string)
+    mult = l[1][-1::]
+    mult_int = 1
+    if mult == 's':
+        mult_int = 1
+    elif mult == 'm':
+        mult_int = 60
+    elif mult == 'h':
+        mult_int = 60*60
+    elif mult == 'd':
+        mult_int = 60*60*24
+    return int(l[1][:-1:])*mult_int
+
+@bot.message_handler(commands = ['ro'])
+def bot_users_ro(msg):
+    message = msg
+    for i in bot.get_chat_administrators(msg.chat.id):
+        if msg.from_user.id == i.user.id:
+            try:
+                if len(msg.text) == 3:
+                    ban_time = 60
+                else:
+                    ban_time = parse_time(msg.text)
+                bot.restrict_chat_member(msg.chat.id, msg.reply_to_message.from_user.id, until_date=str(time.time() + ban_time))
+                bot.send_message(
+                    msg.chat.id, 
+                '[{}](tg://user?id={}) попросил [{}](tg://user?id={}) помолчать на {} сек.'.format(
+                    msg.from_user.first_name,
+                    msg.from_user.id,
+                    msg.reply_to_message.from_user.first_name,
+                    msg.reply_to_message.from_user.id,
+                    ban_time
+                ),
+                parse_mode = 'Markdown',
+                disable_web_page_preview=True
+                )
+            except Exception as e:
+                logging.error(e)
+                bot.send_message(msg.chat.id, e)
+                bot.send_message(msg.chat.id, msg.text)
+
+@bot.message_handler(commands = ['stickerpack_ban'])
+def bot_stickerpack_ban(msg):
+    for i in bot.get_chat_administrators(msg.chat.id):
+        if msg.from_user == i.user.id:
+            try:
+                if msg.reply_to_message.content_type == 'sticker':
+                    message = msg
+                    add_to_DB(msg)
+            except Exception as e:
+                logging.error(e)
+                bot.send_message(msg.chat.id, e)
+                
 @bot.message_handler(commands = ['sticker_ban'])
 def bot_sticker_ban(msg):
     for i in bot.get_chat_administrators(msg.chat.id):
@@ -122,8 +218,17 @@ def bot_answ(msg):
     message = msg
     bot.send_message(msg.chat.id, msg.chat.id)
 
-while True:
-    try:        
-        bot.polling(none_stop = True)
-    except Exception as e:
-        logging.error(e)
+bot.remove_webhook()
+
+bot.set_webhook(url=WEBHOOK_URL_BASE + WEBHOOK_URL_PATH,
+                certificate=open(WEBHOOK_SSL_CERT, 'r'))
+
+cherrypy.config.update({
+    'server.socket_host': WEBHOOK_LISTEN,
+    'server.socket_port': WEBHOOK_PORT,
+    'server.ssl_module': 'builtin',
+    'server.ssl_certificate': WEBHOOK_SSL_CERT,
+    'server.ssl_private_key': WEBHOOK_SSL_PRIV
+})
+
+cherrypy.quickstart(WebhookServer(), WEBHOOK_URL_PATH, {'/': {}})                
