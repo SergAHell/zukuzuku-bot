@@ -94,7 +94,7 @@ def add_to_DB(msg):
 
 def ban_sticker(file_id, group):
     with DataConn('db.db') as conn:
-        cursor = conn.cursos()
+        cursor = conn.cursor()
         sql = 'SELECT * FROM db WHERE `StickerFileID` = "{}" and `GroupID` = "{}"'.format(file_id, str(group))
         cursor.execute(sql)
         res = cursor.fetchone()
@@ -210,7 +210,6 @@ def bot_ping(msg):
     
 @bot.message_handler(content_types = ['new_chat_members'])
 def bot_users_new(msg):
-    bot_send(msg)
     message = msg
     bot.send_message(
         msg.chat.id,
