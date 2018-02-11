@@ -1,4 +1,5 @@
 {
     "python.linting.enabled": false,
-    "python.formatting.provider": "yapf"
+    "python.formatting.provider": "yapf",
+    "python.pythonPath": "C:\\Users\\mrile\\AppData\\Local\\Programs\\Python\\Python35\\python.exe"
 }

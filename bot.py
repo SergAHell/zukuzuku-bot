@@ -287,6 +287,11 @@ def create_group_setting(group_id):
     keyboard.add(types.InlineKeyboardButton(text="O'zbek", callback_data='uz_lang'))
     return keyboard
 
+def set_setting(set_name, group_id, state):
+    with DataConn('db.db') as conn:
+        cursor = conn.cursor()
+        sql = 'UPDATE '
+
 @bot.channel_post_handler(content_types=['text'])
 def bot_broadcast(msg):
     bot.forward_message(config.adminID, config.channel_ID, msg.message_id)
@@ -438,9 +443,7 @@ def bot_users_ro(msg):
                 bot.send_message(msg.chat.id, msg.text)
 
 
-@bot.message_handler(
-    commands=['stickerpack_ban'],
-    func=lambda msg: msg.chat.type == 'supergroup')
+@bot.message_handler(commands=['stickerpack_ban'],func=lambda msg: msg.chat.type == 'supergroup')
 def bot_stickerpack_ban(msg):
     for i in bot.get_chat_administrators(msg.chat.id):
         if msg.from_user.id == i.user.id:
@@ -478,9 +481,7 @@ def bot_stickerpack_ban(msg):
                 bot.send_message(msg.chat.id, e)
 
 
-@bot.message_handler(
-    commands=['stickerpack_unban'],
-    func=lambda msg: msg.chat.type != 'private')
+@bot.message_handler(commands=['stickerpack_unban'], func=lambda msg: msg.chat.type != 'private')
 def bot_stickerpack_unban(msg):
     message = msg
     for i in bot.get_chat_administrators(msg.chat.id):
@@ -488,8 +489,7 @@ def bot_stickerpack_unban(msg):
             try:
                 x = re.split(' ', msg.text)
                 if len(x) != 2:
-                    bot.reply_to(msg,
-                                 text.group_messages['ru']['wrong_command'])
+                    bot.reply_to(msg, text.group_messages['ru']['wrong_command'])
                 else:
                     try:
                         for i in bot.get_sticker_set(x[1]).stickers:
