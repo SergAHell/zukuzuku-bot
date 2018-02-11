@@ -290,7 +290,23 @@ def create_group_setting(group_id):
 def set_setting(set_name, group_id, state):
     with DataConn('db.db') as conn:
         cursor = conn.cursor()
-        sql = 'UPDATE '
+        sql = 'UPDATE chatSettings SET `{set_name}` = {state} WHERE `chatID` = {group_id}'.format(
+            set_name = set_name,
+            group_id = group_id,
+            state = state
+        )
+        cursor.execute(sql)
+        conn.commit()
+
+def get_settings(group_id):
+    with DataConn('db.db') as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM chatSetting WHERE `chatID` = {group_id}'.format(
+            group_id = group_id
+        )
+        cursor.execute(sql)
+        res = cursor.fecthone()
+        return res
 
 @bot.channel_post_handler(content_types=['text'])
 def bot_broadcast(msg):
