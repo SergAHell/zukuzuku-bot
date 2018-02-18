@@ -2,7 +2,7 @@
 
 import random
 
-VERSION = '1.1'
+VERSION = '1.3'
 
 user_messages = {
     'start': '👋',
@@ -24,10 +24,11 @@ user_messages = {
             
         'about': 'Бот написан с нуля [Forden](tg://user?id=303986717) и поддерживается в одиночку \n'
                  'Отдельная благодарность каналу @Obzorchik за информационное сотрудничество и поддержку',
+
         'commands': {
-            'sticker_ban': '\nOlib tashlash uchun <code>/sticker_unban {0}</code> ni jo‘nating.',
-            'sticker_unban': '<b>{}</b> qora ro‘yxatdan olib tashlandi.',
-            'ro': '{} {} dan {} sec jim turishini so‘radi',
+            'sticker_ban': 'Стикер <b>{sticker_id}</b> заблокирован. Для разблокировки введите команду <code>/unban {sticker_id}</code>',
+            'sticker_unban': 'Стикер <b>{sticker_id}</b> разблокирован.',
+            'ro': '<a href="tg://user?id={admin_id}">{admin}</a> попросил <a href="tg://user?id={user_id}">{user} помолчать на {time_sec} сек.</a>',
             'ping': 'Бот функционирует нормально. Текущее UNIX-время: <code>{unix_time}</code>',
             'ban': 'Пользователь <a href="tg://user?id={user_id}">{user}</a> забанен администратором <a href="tg://user?id={admin_id}">{admin}</a>. \nДля разбана используйте команду <code>/unban {user_id}</code>.',
             'unban': 'Пользователь <a href="tg://user?id={user_id}">{user}</a> разбанен администратором <a href="tg://user?id={admin_id}">{admin}</a>',
@@ -92,12 +93,33 @@ group_messages = {
                           '<code>/sticker_unban {sticker_id}</code>',
 
         'unbanned_sticker': 'Стикер <b>{sticker_id}</b> разблокирован',
-
-        'greetings': [
-            'Привет, {user_name}! Располагайся с комфортом',
-            '',
-            ''
-        ]
+        'greetings_file_id': [
+            'AgADAgADZ6kxG1M_GEgG9RyquUvUI2sNMw4ABKAxDeypprsu6vkDAAEC',
+            'AgADAgADcKkxG1M_GEjreI6wBOGOEbjyAw4ABBkPSE0s3-GpBTYDAAEC',
+            'AgADAgADZqkxG1M_GEhbsCHANCg0I5fxAw4ABJmllyr9HizxiTcDAAEC',
+            'AgADAgADZKkxG1M_GEjwXisVZpyDP6EQnA4ABJu3L-OB0-XEeVUBAAEC',
+            'AgADAgADZakxG1M_GEg3WOp12HJF-eUKMw4ABBV3fbNySj_2EQABBAABA',
+            'AgADAgADYakxG1M_GEh1sx0Zy8UiLYIOnA4ABBDqVhsTK1f3MlwBAAEC',
+            'AgADAgADXakxG1M_GEgETQ9kYGr24tP4Mg4ABBFAi_nDhkZAH_cDAAEC',
+            'AgADAgADXKkxG1M_GEh5DvCplGu_dAHyAw4ABA6YcPzwdVQn3DADAAEC',
+            'AgADAgADAqkxG_p-GEis9A0U9P1IYEMPMw4ABFlO5Bi3IT-7aAABBAABAg'
+        ],
+        'greetings': {
+            'AgADAgADZ6kxG1M_GEgG9RyquUvUI2sNMw4ABKAxDeypprsu6vkDAAEC': 'too too roo',
+            'AgADAgADcKkxG1M_GEjreI6wBOGOEbjyAw4ABBkPSE0s3-GpBTYDAAEC': 'Так приятно видеть тебя здесь :3',
+            'AgADAgADZqkxG1M_GEhbsCHANCg0I5fxAw4ABJmllyr9HizxiTcDAAEC': 'Не стесняйся, новым людям тут всегда рады)',
+            'AgADAgADZKkxG1M_GEjwXisVZpyDP6EQnA4ABJu3L-OB0-XEeVUBAAEC': 'Извини, я сейчай не в настроении, говори быстрее что тебе там нужно',
+            'AgADAgADAqkxG_p-GEis9A0U9P1IYEMPMw4ABFlO5Bi3IT-7aAABBAABAg': 'Не частно тут видно новые лица. Я вижу ты новенький да? Если хочешь, могу быстренько проветсти для тебя экскурс',            'AgADAgADY6kxG1M_GEgdWoAgjNiZwBz3Mg4ABEfoLfr4Fi1p5PYDAAEC': 'Добро пожаловать ня! Чем я могу тебе помочь, ня?',
+            'AgADAgADYakxG1M_GEh1sx0Zy8UiLYIOnA4ABBDqVhsTK1f3MlwBAAEC': 'О да, семпай. Поешь еще этих вкусных французских булочек и выпей чаю(а мне налей молочка, я так хочу пить',
+            'AgADAgADXakxG1M_GEgETQ9kYGr24tP4Mg4ABBFAi_nDhkZAH_cDAAEC': 'Рада тебя видеть, нам дорог каждый новый участник чата',
+            'AgADAgADXKkxG1M_GEh5DvCplGu_dAHyAw4ABA6YcPzwdVQn3DADAAEC': 'Здрайствуй, друг, да да, именно ты. Добро пожаловать. Желаем тебе всего хорошего, но хокаге стану я!!!'
+        },
+        'ban_me_please': 'Ну, <a href="tg://user?id={user_id}">{user_name}</a>, ты сам этого захотел. Ты выиграл {t} мин. рид-онли. Поздравляем✨✨\n'
+                         'Для разблокировки попроси любого администратора написать команду <code>/unban {user_id}</code>',
+                         
+        'not_in_ban': 'Ошибочка вышла: пользователь <a href="tg://user?id={user_id}">{user_name}</a> не заблокирован!',
+                      
+        'unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разлобкирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>'
     },
     'en': {},
     'uz': {}
