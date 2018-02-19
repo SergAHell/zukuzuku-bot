@@ -35,6 +35,24 @@ main_info = logging.getLogger('main_info')
 report_info = logging.getLogger('reports')
 
 
+log_name = 'logs.txt'
+f = open(log_name,'w')
+f.close()
+print('Файл логов создан')
+
+telebot_logger = logging.getLogger('telebot')
+mysql_info = logging.getLogger('mysql')
+main_info = logging.getLogger('main_info')
+report_info = logging.getLogger('reports')
+print('Список логгеров создан')
+
+logging.basicConfig(
+                    format='%(filename)s [LINE:%(lineno)-3d]# %(levelname)-8s - %(name)-9s [%(asctime)s] - %(message)-50s ',
+                    datefmt='%m/%d/%Y %I:%M:%S %p',
+                    level = logging.INFO
+                    )
+
+
 class WebhookServer(object):
     @cherrypy.expose
     def index(self):
@@ -48,18 +66,6 @@ class WebhookServer(object):
             return ''
         else:
             raise cherrypy.HTTPError(403)
-
-
-logging.basicConfig(
-    format='%(filename)s [LINE:%(lineno)-3d]# %(levelname)-8s - %(name)-9s [%(asctime)s] - %(message)-50s ',
-    datefmt='%m/%d/%Y %I:%M:%S %p')
-
-cherrypy.config.update({
-    'log.screen': False,
-    'log.access_file': '',
-    'log.error_file': ''
-})
-
 
 def bot_send(msg):
     mesg = '```\n%s\n```' % ujson.dumps(msg, indent=4, ensure_ascii=False)
@@ -91,16 +97,6 @@ class DataConn:
             raise
 
 
-def get_user_lang(msg):
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT `Language` FROM users WHERE `UserID` = {}'.format(
-            msg.chat.id)
-        cursor.execute(sql)
-        res = cursor.fetchone()
-    return res[0]
-
-
 def add_to_DB(msg):
     file_id = msg.reply_to_message.sticker.file_id
     group_id = msg.chat.id
@@ -117,120 +113,6 @@ def ban_sticker(file_id, group):
             sql = 'INSERT INTO db VALUES("{}","{}")'.format(str(group), file_id)
             cursor.execute(sql)
             conn.commit()
-
-
-def register_new_chat(msg):
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM chats WHERE `chat_id` = {}'.format(msg.chat.id)
-        cursor.execute(sql)
-        res = cursor.fetchone()
-        if res is None:
-            for i in bot.get_chat_administrators(msg.chat.id):
-                if i.status == 'creator':
-                    creator_name = i.user.first_name
-                    creator_id = i.user.id
-                sql = 'SELECT * FROM chatAdmins WHERE `chat_id` = {} AND `AdminID` = {}'.format(
-                    msg.chat.id, 
-                    i.user.id)
-                cursor.execute(sql)
-                res = cursor.fetchone()
-                if res is None:
-                    sql = 'INSERT INTO chatAdmins VALUES ("{}", "{}", "{}", "{}", "{}", "{}")'.format(
-                        msg.chat.id, msg.chat.title, i.user.first_name,
-                        i.user.id, 0, int(time.time()))
-                    cursor.execute(sql)
-                    conn.commit()
-            sql = 'INSERT INTO chats VALUES ("{}", "{}", "{}", "{}", "{}", "{}", "{}")'.format(
-                msg.chat.id, 
-                msg.chat.title, 
-                creator_name, 
-                creator_id,
-                bot.get_chat_members_count(msg.chat.id),
-                0,
-                int(time.time()), 
-                )
-            cursor.execute(sql)
-            conn.commit()
-            cursor.execute('SELECT * FROM chats')
-            r = cursor.fetchall()
-            bot.send_message(
-                config.reports_group_id,
-                text.service_messages['new_chat'].format(
-                    chat_id=msg.chat.id,
-                    chat_name=msg.chat.title,
-                    chat_amount=len(r),
-                    admin_id=creator_id,
-                    admin_name=creator_name,
-                    chat_users_amount=bot.get_chat_members_count(msg.chat.id)),
-                parse_mode='HTML')
-            bot.send_message(msg.chat.id, text.group_messages['ru']['start'])
-        else:
-            for i in bot.get_chat_administrators(msg.chat.id):
-                sql = 'SELECT * FROM chatAdmins WHERE `chat_id` = {} AND `AdminID` = {}'.format(
-                    msg.chat.id, 
-                    i.user.id)
-                cursor.execute(sql)
-                res = cursor.fetchone()
-                if res is None:
-                    sql = 'INSERT INTO chatAdmins VALUES ("{}", "{}", "{}", "{}", "{}", "{}")'.format(
-                        msg.chat.id, msg.chat.title, i.user.first_name,
-                        i.user.id, 0, int(time.time()))
-                    cursor.execute(sql)
-                    conn.commit()
-            sql = 'SELECT `ChatMembersCount` FROM chats WHERE `chat_id` = {chat_id}'.format(
-                chat_id=msg.chat.id)
-            res = cursor.execute(sql).fetchone()
-            if res != bot.get_chat_members_count(msg.chat.id):
-                sql = 'UPDATE chats SET `ChatMembersCount` = {members_count} WHERE `chat_id` = {chat_id}'.format(
-                    members_count=bot.get_chat_members_count(msg.chat.id),
-                    chat_id=msg.chat.id)
-                cursor.execute(sql)
-                conn.commit()
-
-
-def register_new_user(call, lang):
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM users WHERE UserID = {}'.format(
-            int(call.from_user.id))
-        cursor.execute(sql)
-        res = cursor.fetchone()
-        if res is None:
-            try:
-                surname = call.from_user.last_name
-            except Exception as e:
-                logging.error(e)
-                surname = 'Unknown{}'.format(call.from_user.id)
-            sql = 'INSERT INTO users VALUES("{}", "{}", "{}", "{}", "{}", "{}")'.format(
-                int(call.from_user.id), int(time.time()),
-                str(call.from_user.first_name), surname, 0, lang)
-            cursor.execute(sql)
-            conn.commit()
-            cursor.execute('SELECT * FROM users')
-            r = cursor.fetchall()
-            bot.send_message(
-                config.reports_group_id,
-                text.service_messages['new_user'].format(
-                    user_id=call.from_user.id,
-                    user_name=call.from_user.first_name,
-                    user_amount=len(r),
-                    user_lang = lang
-                    ),
-                parse_mode='HTML',
-                disable_web_page_preview=True)
-        else:
-            try:
-                surname = call.from_user.last_name
-            except Exception as e:
-                logging.error(e)
-                surname = 'Unknown{}'.format(call.from_user.id)
-            sql = 'UPDATE users SET `Language` = "{}" WHERE `UserID` = "{}"'.format(
-                lang, call.from_user.id)
-            print(sql)
-            cursor.execute(sql)
-            conn.commit()
-
 
 def unban_sticker(sticker, group_ID):
     file_id = sticker.file_id
@@ -305,53 +187,28 @@ def create_group_settings(msg):
     keyboard.add(btn1, btn2)
     return keyboard
 
-def set_setting(set_name, group_id, state):
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'UPDATE chatSettings SET `{set_name}` = {state} WHERE `chatID` = {group_id}'.format(
-            set_name = set_name,
-            group_id = group_id,
-            state = state
-        )
-        cursor.execute(sql)
-        conn.commit()
+@bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == config.channel_ID)
+def bot_broadcast(msg):
+    bot.forward_message(config.adminID, msg.chat.id, msg.forward_from_message_id)
 
-def get_settings(group_id):
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM chatSetting WHERE `chatID` = {group_id}'.format(
-            group_id = group_id
-        )
-        cursor.execute(sql)
-        res = cursor.fecthone()
-        return res
 
 @bot.message_handler(commands = ['nsdfjkgvsdhipjh'])
 def bot_answ(msg):
     message = msg
     bot.send_message(msg.chat.id, 'test', reply_markup=create_group_settings(msg))
-
-@bot.channel_post_handler(content_types=['text'])
-def bot_broadcast(msg):
-    bot.forward_message(config.adminID, config.channel_ID, msg.message_id)
-
+    bot_lang(msg)
 
 @bot.message_handler(commands=['start'], func=lambda msg: msg.chat.type == 'private')
 def bot_user_start(msg):
     message = msg
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM users WHERE UserID = {}'.format(msg.from_user.id)
-        cursor.execute(sql)
-        res = cursor.fetchone()
-        if res is None:
-            bot.send_message(
-                msg.chat.id,
-                text.user_messages['start'],
-                reply_markup=create_user_language_keyboard()
-                )
-        else:
-            bot.send_message(msg.chat.id, text.user_messages[get_user_lang(msg)]['start'])
+    if utils.is_user_new(msg):
+        bot.send_message(
+            msg.chat.id,
+            text.user_messages['start'],
+            reply_markup=create_user_language_keyboard()
+            )
+    else:
+        bot.send_message(msg.chat.id, text.user_messages[utils.get_user_lang(msg)]['start'])
 
 
 @bot.message_handler(commands=['start'], func=lambda msg: msg.chat.type != 'private')
@@ -359,7 +216,13 @@ def bot_group_start(msg):
     message = msg
     api.register_new_chat(msg)
 
-
+@bot.message_handler(commands=['set_text'], func = lambda msg: msg.chat.type != 'private')
+def bot_set_text(msg):
+    message = msg
+    if len(msg.text) not in [9, 21]:
+        new_greeting = msg.text[len(msg.text):msg.entities[0].length:-1][::-1]
+        print(new_greeting)
+        utils.set_greeting(msg, new_greeting)
 
 @bot.message_handler(commands=['kick'], func=lambda msg: msg.chat.type != 'private')
 def bot_kick(msg):
@@ -384,17 +247,27 @@ def bot_ban_me_please(msg):
         t = random.randint(1, 10)
         ban_time = 60*t
         try:
-            bot.restrict_chat_member(
-                msg.chat.id,
-                msg.from_user.id,
-                until_date=str(time.time() + ban_time))
-            bot.send_message(msg.chat.id, text.group_messages['ru']['ban_me_please'].format(
-                user_id = msg.from_user.id,
-                user_name = msg.from_user.first_name,
-                t = t
-            ), parse_mode = 'HTML')
+            if not utils.check_status(msg):
+                bot.restrict_chat_member(
+                    msg.chat.id,
+                    msg.from_user.id,
+                    until_date=str(time.time() + ban_time))
+                bot.send_message(msg.chat.id, text.group_messages['ru']['ban_me_please'].format(
+                    user_id = msg.from_user.id,
+                    user_name = msg.from_user.first_name,
+                    t = t
+                ), parse_mode = 'HTML')
+            else:
+                bot.send_message(
+                    msg.chat.id,
+                    text.group_messages['ru']['user_is_admin'].format(
+                        admin_id = msg.from_user.id,
+                        admin_name = msg.from_user.first_name
+                    ),
+                    parse_mode='HTML'
+                )
         except Exception as e:
-            print(e)
+            logging.error(e)
     else:
         if utils.check_status(msg):
             bot.kick_chat_member(
@@ -429,14 +302,22 @@ def bot_ping(msg):
 @bot.message_handler(content_types=['new_chat_members'])
 def bot_users_new(msg):
     message = msg
-    register_new_chat(msg)
-    curr_greeting = random.choice(text.group_messages['ru']['greetings_file_id'])
-    bot.send_photo(
-        msg.chat.id,
-        photo = curr_greeting,
-        caption = text.group_messages['ru']['greetings'][curr_greeting]
-    )
-
+    api.register_new_chat(msg)
+    if msg.new_chat_member.id != 495038140:
+        r = utils.need_greeting(msg)
+        if int(r) == 1:
+            text = utils.get_greeting(msg)
+            res = utils.check_greeting(text)
+            if res:
+                bot.send_message(
+                    msg.chat.id,
+                    text, 
+                    parse_mode='HTML'
+                )
+        if int(r) == 2:
+            utils.standart_greeting(msg)
+    
+    
 @bot.message_handler(commands = ['unban'], func = lambda msg: msg.chat.type != 'private')
 def bot_user_unban(msg):
     if utils.check_status(msg):
@@ -471,10 +352,6 @@ def bot_user_unban(msg):
                     user_name = r.user.first_name
                 ), 
                 parse_mode='HTML')
-
-@bot.message_handler(content_types = ['text'], func = lambda msg: msg.chat.id in [-1001078768749, -1001327810437])
-def bot_del_url(msg):
-    del_url(msg)
 
 @bot.message_handler(commands=['ro'], func=lambda msg: msg.chat.type == 'supergroup')
 def bot_users_ro(msg):
@@ -656,7 +533,7 @@ def bot_del(msg):
 def bot_help(msg):
     bot.send_message(
         msg.chat.id,
-        text.user_messages[get_user_lang(msg)]['help'],
+        text.user_messages[utils.get_user_lang(msg)]['help'],
         parse_mode='HTML')
 
 
@@ -664,7 +541,7 @@ def bot_help(msg):
 def bot_about(msg):
     bot.send_message(
         msg.chat.id,
-        text.user_messages[get_user_lang(msg)]['about'],
+        text.user_messages[utils.get_user_lang(msg)]['about'],
         parse_mode='Markdown')
 
 
@@ -684,7 +561,7 @@ def change_language(call):
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         text=text.user_messages[lang]['chosen_language'])
-    register_new_user(call, lang)
+    api.register_new_user(call, lang)
 
 @bot.callback_query_handler(func = lambda c: len(c.data) == 7 and c.data[0:6] == 'notify')
 def notify_change(c):

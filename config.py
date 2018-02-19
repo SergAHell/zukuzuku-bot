@@ -6,6 +6,7 @@ adminID = 303986717
 
 reports_group_id = -195841461
 channel_ID = -1001384235254
+check_text = -1001209675599
 
 languages = {
     'ru' : '🇷🇺 Русский',

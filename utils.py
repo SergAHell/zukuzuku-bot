@@ -1,5 +1,6 @@
 # coding: utf8
 
+import random
 import sqlite3
 
 import telebot
@@ -7,7 +8,6 @@ import telebot
 import api
 import config
 import text
-
 
 bot = telebot.TeleBot(token = config.token)
 
@@ -74,4 +74,45 @@ def notify_new_chat(msg):
         parse_mode='HTML'
     )
 
+def get_user_lang(msg):
+    r = api.get_user_param(msg, 'language')
+    return r
 
+def get_group_lang(msg):
+    r = api.get_group_param(msg, 'language')
+    return r
+
+def is_user_new(msg):
+    r = api.is_user_new(msg)
+    print(r)
+    return r
+
+def set_greeting(msg, greeting):
+    api.set_group_param(msg, 'greeting', greeting)
+
+def get_greeting(msg):
+    r = api.get_group_param(msg, 'greeting')
+    return r
+
+def check_greeting(text):
+    try:
+        bot.send_message(
+            config.check_text,
+            text, 
+            parse_mode='HTML'
+        )
+        return True
+    except Exception as e:
+        return False
+
+def standart_greeting(msg):
+    key = random.choice(text.group_messages['ru']['greetings_file_id'])
+    bot.send_document(
+        msg.chat.id,
+        key,
+        caption=text.group_messages['ru']['greetings'][key]
+    )
+
+def need_greeting(msg):
+    r = api.get_group_param(msg, 'greeting_enabled')
+    return r

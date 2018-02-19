@@ -92,13 +92,15 @@ group_messages = {
                           'Чтобы разблокировать его, введите следующую команду:\n'
                           '<code>/sticker_unban {sticker_id}</code>',
 
+        'user_is_admin': 'Даже пробовать не буду: <a href = "tg://user?id={admin_id}">{admin_name}</a> - один из администраторов чата',
+
         'unbanned_sticker': 'Стикер <b>{sticker_id}</b> разблокирован',
+
         'greetings_file_id': [
             'AgADAgADZ6kxG1M_GEgG9RyquUvUI2sNMw4ABKAxDeypprsu6vkDAAEC',
             'AgADAgADcKkxG1M_GEjreI6wBOGOEbjyAw4ABBkPSE0s3-GpBTYDAAEC',
             'AgADAgADZqkxG1M_GEhbsCHANCg0I5fxAw4ABJmllyr9HizxiTcDAAEC',
             'AgADAgADZKkxG1M_GEjwXisVZpyDP6EQnA4ABJu3L-OB0-XEeVUBAAEC',
-            'AgADAgADZakxG1M_GEg3WOp12HJF-eUKMw4ABBV3fbNySj_2EQABBAABA',
             'AgADAgADYakxG1M_GEh1sx0Zy8UiLYIOnA4ABBDqVhsTK1f3MlwBAAEC',
             'AgADAgADXakxG1M_GEgETQ9kYGr24tP4Mg4ABBFAi_nDhkZAH_cDAAEC',
             'AgADAgADXKkxG1M_GEh5DvCplGu_dAHyAw4ABA6YcPzwdVQn3DADAAEC',
@@ -110,7 +112,7 @@ group_messages = {
             'AgADAgADZqkxG1M_GEhbsCHANCg0I5fxAw4ABJmllyr9HizxiTcDAAEC': 'Не стесняйся, новым людям тут всегда рады)',
             'AgADAgADZKkxG1M_GEjwXisVZpyDP6EQnA4ABJu3L-OB0-XEeVUBAAEC': 'Извини, я сейчай не в настроении, говори быстрее что тебе там нужно',
             'AgADAgADAqkxG_p-GEis9A0U9P1IYEMPMw4ABFlO5Bi3IT-7aAABBAABAg': 'Не частно тут видно новые лица. Я вижу ты новенький да? Если хочешь, могу быстренько проветсти для тебя экскурс',            'AgADAgADY6kxG1M_GEgdWoAgjNiZwBz3Mg4ABEfoLfr4Fi1p5PYDAAEC': 'Добро пожаловать ня! Чем я могу тебе помочь, ня?',
-            'AgADAgADYakxG1M_GEh1sx0Zy8UiLYIOnA4ABBDqVhsTK1f3MlwBAAEC': 'О да, семпай. Поешь еще этих вкусных французских булочек и выпей чаю(а мне налей молочка, я так хочу пить',
+            'AgADAgADYakxG1M_GEh1sx0Zy8UiLYIOnA4ABBDqVhsTK1f3MlwBAAEC': 'О да, семпай. Поешь еще этих вкусных французских булочек и выпей чаю (а мне налей молочка, я так хочу пить)',
             'AgADAgADXakxG1M_GEgETQ9kYGr24tP4Mg4ABBFAi_nDhkZAH_cDAAEC': 'Рада тебя видеть, нам дорог каждый новый участник чата',
             'AgADAgADXKkxG1M_GEh5DvCplGu_dAHyAw4ABA6YcPzwdVQn3DADAAEC': 'Здрайствуй, друг, да да, именно ты. Добро пожаловать. Желаем тебе всего хорошего, но хокаге стану я!!!'
         },
