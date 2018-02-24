@@ -27,6 +27,9 @@ user_messages = {
 
         'commands': {
             'sticker_ban': 'Стикер <b>{sticker_id}</b> заблокирован. Для разблокировки введите команду <code>/unban {sticker_id}</code>',
+            'stickerpack_banned': 'Заблокирован стикерпак <b>{stickerpack_name}</b>, содержащий <code>{count}</code> шт. стикеров.\n'
+                                  'Для разблокировки попросите администратора ввести команду <code>/stickerpack_unban {stickerpack_name}</code>',
+            'stickerpack_unbanned': 'Стикерпак <b>{stickerpack_name}</b> разблокирован.',
             'sticker_unban': 'Стикер <b>{sticker_id}</b> разблокирован.',
             'ro': '<a href="tg://user?id={admin_id}">{admin}</a> попросил <a href="tg://user?id={user_id}">{user} помолчать на {time_sec} сек.</a>',
             'ping': 'Бот функционирует нормально. Текущее UNIX-время: <code>{unix_time}</code>',
@@ -91,10 +94,11 @@ group_messages = {
         'banned_sticker': 'Стикер <b>{sticker_id}</b> заблокирован.\n' 
                           'Чтобы разблокировать его, введите следующую команду:\n'
                           '<code>/sticker_unban {sticker_id}</code>',
+        'unbanned_sticker': 'Стикер <b>{sticker_id}</b> разблокирован',
 
         'user_is_admin': 'Даже пробовать не буду: <a href = "tg://user?id={admin_id}">{admin_name}</a> - один из администраторов чата',
 
-        'unbanned_sticker': 'Стикер <b>{sticker_id}</b> разблокирован',
+        
 
         'greetings_file_id': [
             'AgADAgADZ6kxG1M_GEgG9RyquUvUI2sNMw4ABKAxDeypprsu6vkDAAEC',
@@ -116,6 +120,7 @@ group_messages = {
             'AgADAgADXakxG1M_GEgETQ9kYGr24tP4Mg4ABBFAi_nDhkZAH_cDAAEC': 'Рада тебя видеть, нам дорог каждый новый участник чата',
             'AgADAgADXKkxG1M_GEh5DvCplGu_dAHyAw4ABA6YcPzwdVQn3DADAAEC': 'Здрайствуй, друг, да да, именно ты. Добро пожаловать. Желаем тебе всего хорошего, но хокаге стану я!!!'
         },
+        
         'ban_me_please': 'Ну, <a href="tg://user?id={user_id}">{user_name}</a>, ты сам этого захотел. Ты выиграл {t} мин. рид-онли. Поздравляем✨✨\n'
                          'Для разблокировки попроси любого администратора написать команду <code>/unban {user_id}</code>',
                          
@@ -125,6 +130,28 @@ group_messages = {
     },
     'en': {},
     'uz': {}
+}
+
+group_commands = {
+    'ru': {
+        'errors':{
+            'not_enough_rights': 'Извините, но я не могу вам помочь в этом: у вас недостаточно прав для совершения этого действия.',
+            'no_such_sticker': 'Извините, но я не могу помочь в этом: данный стикер еще не заблокирован.',
+            'no_args_provided': 'Извините, но я не могу помочь в этом: не предоставлено ни одного аргумента.',
+            'not_restricted': 'Извините, но я не могу помочь в этом: данный пользователь не был ограничен.'
+        },
+
+        'sticker_banned': 'Стикер <b>{sticker_id}</b> заблокирован.\n'
+                          'Для разблокировки попросите любого администратора ввести команду <code>/sticker_id {sticker_id}</code>',
+        'sticker_unbanned': 'Стикер <b>{sticker_id}</b> разаблокирован.',
+        'stickerpack_banned': 'Заблокирован стикерпак <b>{stickerpack_name}</b>, содержащий <code>{count}</code> шт. стикеров.\n'
+                              'Для разблокировки попросите администратора ввести команду <code>/stickerpack_unban {stickerpack_name}</code>',
+        'stickerpack_unbanned': 'Стикерпак <b>{stickerpack_name}</b> разблокирован.',
+
+        'user_unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}>{admin_name}</a>.'
+    },
+    'en': {},
+    'uz': {},
 }
 
 service_messages = {

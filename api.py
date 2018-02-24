@@ -1,5 +1,6 @@
 #coding: utf8
 
+import hashlib
 import logging
 import time
 
@@ -53,10 +54,11 @@ db = DB(
     db = config.db
 )
 
-log_name = 'logs.txt'
-f = open(log_name,'w')
-f.close()
-print('Файл логов создан')
+if __name__ == '__main__':
+    log_name = 'logs.txt'
+    f = open(log_name,'w')
+    f.close()
+    print('Файл логов создан')
 
 telebot_logger = logging.getLogger('telebot')
 mysql_info = logging.getLogger('mysql')
@@ -67,8 +69,32 @@ print('Список логгеров создан')
 logging.basicConfig(
                     format='%(filename)s [LINE:%(lineno)-3d]# %(levelname)-8s - %(name)-9s [%(asctime)s] - %(message)-50s ',
                     datefmt='%m/%d/%Y %I:%M:%S %p',
+                    filename = 'logs.txt',
                     level = logging.INFO
                     )
+
+
+def register_admins(msg):
+    chat_id = msg.chat.id
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        for i in bot.get_chat_administrators(chat_id):
+            sql = 'SELECT * FROM `chat_admins` WHERE `user_id` = {user_id} AND `chat_id` = {chat_id}'.format(
+                user_id = i.user.id,
+                chat_id = chat_id
+            )
+            cursor.execute(sql)
+            res = cursor.fetchone()
+            if res is None:
+                sql = 'INSERT INTO `chat_admins` (`chat_id`, `chat_name`, `admin_name`, `admin_id`, `status`) VALUES ("{}", "{}", "{}", "{}", "{}")'.format(
+                    chat_id,
+                    msg.chat.title,
+                    i.user.first_name,
+                    i.user.id
+                )
+                cursor.execute(sql)
+                conn.commit()
+        
 
 def ban_sticker(msg, sticker_id):
     """
@@ -217,10 +243,8 @@ def register_new_chat(msg):
             )
             sql = sql
             try:
-                print(sql)
                 cursor.execute(sql)
                 conn.commit()
-                print(sql)
             except Exception as e:
                 logging.error('error')
                 logging.error(sql)
@@ -234,15 +258,15 @@ def register_new_chat(msg):
             )
             sql = sql
             try:
-                print(sql)
                 cursor.execute(sql)
                 conn.commit()
-                print(sql)
             except Exception as e:
                 logging.error('error')
                 logging.error(sql)
             utils.notify_new_chat(msg)
-
+            register_admins(msg)
+        else:
+            register_admins(msg)
 def get_users_count():
     """
     Возвращает количество пользователей в базе\n
@@ -265,7 +289,7 @@ def get_chats_count():
         res = cursor.fetchall()
         return len(res)
 
-def get_user_param(msg, column):
+def get_user_param(user_id, column):
     """
     Возвращает определенный параметр пользовательских настроек
     :param msg:
@@ -275,23 +299,20 @@ def get_user_param(msg, column):
         cursor = conn.cursor()
         sql = 'SELECT `{column}` FROM user_settings WHERE `user_id` = "{id}"'.format(
             column = column,
-            id = msg.chat.id
+            id = user_id
         )
         sql = sql
-        print()
-        print(sql)
-        print()
         cursor.execute(sql)
         res = cursor.fetchone()
         return res[column]
 
-def set_user_param(msg, column, state):
+def set_user_param(user_id, column, state):
     with DataConn(db) as conn:
         cursor = conn.cursor()
         sql = 'UPDATE `user_settings` SET `{column}` = "{state}" WHERE `user_id` = "{id}"'.format(
             column = column,
             state = state,
-            id = msg.chat.id
+            id = user_id
         )
         sql = sql
         cursor.execute(sql)
@@ -334,3 +355,17 @@ def is_user_new(msg):
         else:
             res = False
         return res
+
+def check_sticker(sticker_id, chat_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `banned_sticker` WHERE `sticker_id` = {sticker} AND `chat_id` = {chat}'.format(
+            sticker = sticker_id,
+            chat = chat_id
+        )
+        cursor.execute(sql)
+        r = cursor.fetchone()
+        if r is None:
+            return False
+        else:
+            return True

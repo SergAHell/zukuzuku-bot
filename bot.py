@@ -34,11 +34,11 @@ sqlite_info = logging.getLogger('sqlite')
 main_info = logging.getLogger('main_info')
 report_info = logging.getLogger('reports')
 
-
-log_name = 'logs.txt'
-f = open(log_name,'w')
-f.close()
-print('Файл логов создан')
+if __name__ == '__main__':
+    log_name = 'logs.txt'
+    f = open(log_name,'w')
+    f.close()
+    print('Файл логов создан')
 
 telebot_logger = logging.getLogger('telebot')
 mysql_info = logging.getLogger('mysql')
@@ -144,37 +144,27 @@ def parse_time(string):
         mult_int = 60 * 60 * 24
     return int(l[1][:-1:]) * mult_int
 
-def del_url(msg):
-    signal = False
-    try:
-        for i in msg.entities:
-            if i.type == 'url':
-                signal = True
-    except Exception as e:
-        pass
-    finally:
-        if signal is True:
-            bot.delete_message(
-                msg.chat.id,
-                msg.message_id
-            )
-            print('Удалено сообщение с ссылкой')
-
-def create_user_language_keyboard():
+def create_user_language_keyboard(referrer=303986717):
     lang_keyboard = types.InlineKeyboardMarkup()
-    lang_keyboard.add(types.InlineKeyboardButton(text="Русский", callback_data='ru_lang'))
-    lang_keyboard.add(types.InlineKeyboardButton(text="English", callback_data='en_lang'))
-    lang_keyboard.add(types.InlineKeyboardButton(text="O'zbek", callback_data='uz_lang'))
+    lang_keyboard.add(types.InlineKeyboardButton(text="Русский", callback_data='ru_{ref}_lang'.format(ref=referrer)))
+    lang_keyboard.add(types.InlineKeyboardButton(text="English", callback_data='en_{ref}_lang'.format(ref=referrer)))
+    lang_keyboard.add(types.InlineKeyboardButton(text="O'zbek", callback_data='uz_{ref}_lang'.format(ref=referrer)))
     return lang_keyboard
 
-def create_group_language(group_id):
+def create_group_language():
+    """
+    Создает кнопки настройки языка группы
+    """
     keyboard = types.InlineKeyboardMarkup()
     keyboard.add(types.InlineKeyboardButton(text="🇷🇺 Русский", callback_data='ru_lang'))
     keyboard.add(types.InlineKeyboardButton(text="🇺🇸 English", callback_data='en_lang'))
     keyboard.add(types.InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data='uz_lang'))
     return keyboard
 
-def create_group_settings(msg):
+def create_group_settings():
+    """
+    Создает кнопки настройки группы
+    """
     keyboard = types.InlineKeyboardMarkup(row_width=2)
     btn1 = types.InlineKeyboardButton(text="Включить оповещения", callback_data='notify1')
     btn2 = types.InlineKeyboardButton(text="Отключить оповещения", callback_data='notify0')
@@ -192,6 +182,7 @@ def bot_broadcast(msg):
     bot.forward_message(config.adminID, msg.chat.id, msg.forward_from_message_id)
 
 
+
 @bot.message_handler(commands = ['nsdfjkgvsdhipjh'])
 def bot_answ(msg):
     message = msg
@@ -202,6 +193,9 @@ def bot_answ(msg):
 def bot_user_start(msg):
     message = msg
     if utils.is_user_new(msg):
+        if utils.have_args(msg):
+            words = utils.parse_arg(msg)
+            referrer = words[1]
         bot.send_message(
             msg.chat.id,
             text.user_messages['start'],
@@ -226,20 +220,7 @@ def bot_set_text(msg):
 
 @bot.message_handler(commands=['kick'], func=lambda msg: msg.chat.type != 'private')
 def bot_kick(msg):
-    if utils.check_status(msg):
-        bot.kick_chat_member(
-            msg.chat.id,
-            msg.reply_to_message.from_user.id,
-            until_date=str(time.time() + 31)
-        )
-        bot.unban_chat_member(msg.chat.id, msg.reply_to_message.from_user.id)
-        bot.reply_to(msg, text.user_messages['ru']['commands']['kick'].format(
-            user=msg.reply_to_message.from_user.first_name,
-            user_id=msg.reply_to_message.from_user.id,
-            admin=msg.from_user.first_name,
-            admin_id=msg.from_user.id), 
-            parse_mode = 'HTML'
-        )
+    utils.kick_user(msg)
 
 @bot.message_handler(commands = ['ban', 'ban_me_please'], func = lambda msg: msg.chat.type == 'supergroup')
 def bot_ban_me_please(msg):
@@ -269,16 +250,7 @@ def bot_ban_me_please(msg):
         except Exception as e:
             logging.error(e)
     else:
-        if utils.check_status(msg):
-            bot.kick_chat_member(
-                msg.chat.id,
-                msg.reply_to_message.from_user.id,
-                until_date=str(time.time() + 31708800))
-            bot.reply_to(msg, text.user_messages['ru']['commands']['ban'].format(
-                user=msg.reply_to_message.from_user.first_name,
-                user_id=msg.reply_to_message.from_user.id,
-                admin=msg.from_user.first_name,
-                admin_id=msg.from_user.id), parse_mode = 'HTML')
+        utils.ban_user(msg)
 
 @bot.message_handler(commands=['language'], func=lambda msg: msg.chat.type == 'private')
 def bot_lang(msg):
@@ -312,7 +284,7 @@ def bot_users_new(msg):
                 bot.send_message(
                     msg.chat.id,
                     text, 
-                    parse_mode='HTML'
+                    parse_mode='Markdown'
                 )
         if int(r) == 2:
             utils.standart_greeting(msg)
@@ -320,216 +292,58 @@ def bot_users_new(msg):
     
 @bot.message_handler(commands = ['unban'], func = lambda msg: msg.chat.type != 'private')
 def bot_user_unban(msg):
-    if utils.check_status(msg):
-        if len(msg.text) not in [6, 18]:
-            user_id = re.split(' ', msg.text)[len(re.split(' ', msg.text))-1]
-            r = bot.get_chat_member(
-                msg.chat.id, 
-                user_id
-            )
-            if r.status in ['restricted', 'kicked']:
-                bot.restrict_chat_member(
-                    msg.chat.id,
-                    user_id,
-                    can_send_media_messages=True,
-                    can_add_web_page_previews=True,
-                    can_send_messages=True,
-                    can_send_other_messages=True
-                )
-                bot.send_message(
-                    msg.chat.id,
-                    text.group_messages['ru']['unbanned'].format(
-                        user_id = user_id,
-                        user_name = r.user.first_name,
-                        admin_id = msg.from_user.id,
-                        admin_name = msg.from_user.first_name
-                    ), 
-                    parse_mode='HTML'
-                )
-            else:
-                bot.send_message(msg.chat.id, text.group_messages['ru']['not_in_ban'].format(
-                    user_id = user_id,
-                    user_name = r.user.first_name
-                ), 
-                parse_mode='HTML')
+    if utils.check_status(msg) and utils.have_args(msg):
+        words = utils.parse_arg(msg)
+        user_id = words[1]
+        utils.unban_user(msg, user_id)
 
 @bot.message_handler(commands=['ro'], func=lambda msg: msg.chat.type == 'supergroup')
 def bot_users_ro(msg):
     if utils.check_status(msg):
-        try:
-            if len(msg.text) in [3, 15]:
-                ban_time = 60
-            else:
-                    ban_time = parse_time(msg.text)
-                    bot.restrict_chat_member(
-                        msg.chat.id,
-                        msg.reply_to_message.from_user.id,
-                        until_date=str(time.time() + ban_time))
-                    bot.send_message(
-                        msg.chat.id,
-                        '[{}](tg://user?id={}) попросил [{}](tg://user?id={}) помолчать на {} сек.'.format(
-                            msg.from_user.first_name, 
-                            msg.from_user.id,
-                            msg.reply_to_message.from_user.first_name,
-                            msg.reply_to_message.from_user.id, 
-                            ban_time),
-                        parse_mode='Markdown',
-                        disable_web_page_preview=True)
-        except Exception as e:
-            logging.error(e)
-            bot.send_message(msg.chat.id, e)
-            bot.send_message(msg.chat.id, msg.text)
-
+        utils.read_only(msg)
+    else:
+        utils.not_enought_rights(msg)
 
 @bot.message_handler(commands=['stickerpack_ban'],func=lambda msg: msg.chat.type == 'supergroup')
 def bot_stickerpack_ban(msg):
     if utils.check_status(msg):
-        try:
-            if msg.reply_to_message.content_type == 'sticker':
-                message = msg
-                sticker_packname = None
-                try:
-                    sticker_packname = msg.reply_to_message.sticker.set_name
-                except Exception as e:
-                    bot.reply_to(
-                        msg,
-                        "This sticker don't have stickerpack. I can't ban stickerpack, but i'll ban this sticker"
-                    )
-                    add_to_DB(msg)
-                    stri = r'/sticker_unban {0}'.format(
-                        msg.reply_to_message.sticker.file_id
-                        )
-                    bot.reply_to(
-                        msg,
-                        'Sticker <b>{0}</b> added to blacklist. To remove it write: \n<code>{1}</code>'.format(
-                            msg.reply_to_message.sticker.file_id, 
-                            stri
-                            ),
-                            parse_mode='HTML'
-                            )
-                if sticker_packname is not None:
-                    stickerpack = bot.get_sticker_set(sticker_packname)
-                    for i in stickerpack.stickers:
-                        ban_sticker(i.file_id, msg.chat.id)
-                        stri = r'/stickerpack_unban {}'.format(
-                            sticker_packname
-                            )
-                        bot.send_message(
-                            msg.chat.id,
-                            'Banned <b>{}</b> stickers. To unban them write: \n<code>{}</code>'.format(
-                            len(stickerpack.stickers), 
-                            stri
-                            ))
-        except Exception as e:
-            logging.error(e)
-            bot.send_message(msg.chat.id, e)
-
+        utils.ban_stickerpack(msg)
+    else:
+        utils.not_enought_rights(msg)
 
 @bot.message_handler(commands=['stickerpack_unban'], func=lambda msg: msg.chat.type != 'private')
 def bot_stickerpack_unban(msg):
-    if utils.check_status(msg):
-        try:
-            x = re.split(' ', msg.text)
-            if len(x) != 2:
-                bot.reply_to(msg, text.group_messages['ru']['wrong_command'])
-            else:
-                try:
-                    for i in bot.get_sticker_set(x[1]).stickers:
-                        pass
-                except Exception as e:
-                    pass
-        except Exception as e:
-            pass
-
+    if utils.check_status(msg) and utils.have_args(msg):
+        words = utils.parse_arg(msg)
+        stickerpack_name = words[1]
+        utils.unban_stickerpack(msg, stickerpack_name)
 
 
 @bot.message_handler(commands=['sticker_ban'], func=lambda msg: msg.chat.type == 'supergroup')
 def bot_sticker_ban(msg):
     if utils.check_status(msg):
-        try:
-            if msg.reply_to_message.content_type == 'sticker':
-                message = msg
-                add_to_DB(msg)
-                stri = r'/sticker_unban {0}'.format(
-                    msg.reply_to_message.sticker.file_id
-                    )
-                bot.reply_to(
-                    msg,
-                    'Sticker <b>{0}</b> added to blacklist. To remove it write: \n<code>{1}</code>'.format(
-                        msg.reply_to_message.sticker.file_id,
-                        stri
-                        ),
-                        parse_mode='HTML'
-                        )
-                bot.delete_message(
-                    msg.chat.id,
-                    msg.reply_to_message.message_id)
-        except Exception as e:
-            bot_send(msg)
-            logging.error(e)
+        sticker_id = msg.sticker.file_id
+        utils.ban_sticker(msg, sticker_id)
+    elif not utils.check_status(msg):
+        utils.not_enought_rights(msg)
 
 
 @bot.message_handler(commands=['sticker_unban'], func=lambda msg: msg.chat.type == 'supergroup')
 def bot_sticker_unban(msg):
-    if utils.check_status(msg):
-        try:
-            x = re.split(' ', msg.text)
-            if len(x) > 2 or len(x) < 2:
-                bot.reply_to(msg, 'Wrong command, try again.')
-            else:
-                sticker_id = re.split(' ', msg.text)[1]
-                with DataConn('db.db') as conn:
-                    cursor = conn.cursor()
-                    sql = 'SELECT * FROM db WHERE `StickerFileID` = "{}" and `GroupID` = "{}"'.format(
-                        x[1], 
-                        str(msg.chat.id)
-                        )
-                    cursor.execute(sql)
-                    res = cursor.fetchone()
-                    if res is not None:
-                        sql = 'DELETE FROM db WHERE `StickerFileID` = "{}" and `GroupID` = "{}"'.format(
-                            x[1], 
-                            str(msg.chat.id)
-                            )
-                        cursor.execute(sql)
-                        conn.commit()
-                        bot.reply_to(
-                            msg,
-                            'Sticker <b>{}</b> removed from DB.'.format(
-                                x[1]
-                                ),
-                            parse_mode='HTML')
-                    else:
-                        bot.reply_to(
-                            msg,
-                            "This sticker doesn't exist in DB. You must ban it to be able to unban it."
-                        )
-        except Exception as e:
-            logging.error(e)
+    if utils.have_args(msg) and utils.check_status(msg):
+        sticker_id = utils.parse_arg(msg)
+        utils.unban_sticker(msg, sticker_id)
+    elif check_status(msg) and not utils.have_args(msg):
+        utils.not_enought_rights(msg)
+    elif utils.have_args(msg) and not check_status(msg):
+        utils.no_args(msg)
 
-
-@bot.message_handler(
-    content_types=['sticker'], 
-    func=lambda msg: msg.chat.type == 'supergroup'
-    )
+@bot.message_handler(content_types=['sticker'], func=lambda msg: msg.chat.type == 'supergroup')
 def bot_del(msg):
-    message = msg
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM db WHERE `StickerFileID` = "{}" and `GroupID` = "{}"'.format(
-            msg.sticker.file_id, 
-            str(msg.chat.id)
-            )
-        cursor.execute(sql)
-        res = cursor.fetchone()
-        if res is not None:
-            bot.delete_message(msg.chat.id, message.message_id)
+    utils.del_sticker(msg)
 
 
-@bot.message_handler(
-    commands=['help'], 
-    func=lambda msg: msg.chat.type == 'private'
-)
+@bot.message_handler(commands=['help'], func=lambda msg: msg.chat.type == 'private')
 def bot_help(msg):
     bot.send_message(
         msg.chat.id,
@@ -554,14 +368,19 @@ def bot_text(msg):
 
 
 
+# Кнопки
+
 @bot.callback_query_handler(func=lambda c: c.data[-4:len(c.data)] == 'lang')
 def change_language(call):
-    lang = call.data[0:2]
+    words = re.split('_', call.data)
+    lang = words[0]
+    referer = words[0]
     bot.edit_message_text(
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         text=text.user_messages[lang]['chosen_language'])
     api.register_new_user(call, lang)
+    utils.new_referral(msg, referer)
 
 @bot.callback_query_handler(func = lambda c: len(c.data) == 7 and c.data[0:6] == 'notify')
 def notify_change(c):
@@ -580,6 +399,9 @@ def del_system(c):
     decision = c.data[-1]
     if utils.check_status(c.message):
         api.set_param(c.message, 'delete_system', decision)
+
+
+# Вебхук
 
 bot.remove_webhook()
 

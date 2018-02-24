@@ -14,6 +14,8 @@ languages = {
     'uz' : "🇺🇿 O'zbek"
 }
 
+
+
 host = '5.9.178.83'
 user = 'zukuzuku'
 password = 'i3dGu5451hBFZR6R'
