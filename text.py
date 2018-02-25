@@ -135,20 +135,26 @@ group_messages = {
 group_commands = {
     'ru': {
         'errors':{
-            'not_enough_rights': 'Извините, но я не могу вам помочь в этом: у вас недостаточно прав для совершения этого действия.',
-            'no_such_sticker': 'Извините, но я не могу помочь в этом: данный стикер еще не заблокирован.',
-            'no_args_provided': 'Извините, но я не могу помочь в этом: не предоставлено ни одного аргумента.',
-            'not_restricted': 'Извините, но я не могу помочь в этом: данный пользователь не был ограничен.'
+            'not_enough_rights': 'Извините, но я не могу вам помочь в этом: <b>у вас недостаточно прав для совершения этого действия.</b>',
+            'no_such_sticker': 'Извините, но я не могу помочь в этом: <b>данный стикер еще не заблокирован.</b>',
+            'no_args_provided': 'Извините, но я не могу помочь в этом: <b>не предоставлено ни одного аргумента.</b>',
+            'not_restricted': 'Извините, но я не могу помочь в этом: <b>данный пользователь не был ограничен.</b>'
         },
 
-        'sticker_banned': 'Стикер <b>{sticker_id}</b> заблокирован.\n'
-                          'Для разблокировки попросите любого администратора ввести команду <code>/sticker_id {sticker_id}</code>',
-        'sticker_unbanned': 'Стикер <b>{sticker_id}</b> разаблокирован.',
-        'stickerpack_banned': 'Заблокирован стикерпак <b>{stickerpack_name}</b>, содержащий <code>{count}</code> шт. стикеров.\n'
-                              'Для разблокировки попросите администратора ввести команду <code>/stickerpack_unban {stickerpack_name}</code>',
-        'stickerpack_unbanned': 'Стикерпак <b>{stickerpack_name}</b> разблокирован.',
+        'stickers': {
+            'banned': 'Стикер <b>{sticker_id}</b> заблокирован.\n'
+                            'Для разблокировки попросите любого администратора ввести команду <code>/sticker_id {sticker_id}</code>',
+            'unbanned': 'Стикер <b>{sticker_id}</b> разаблокирован.',
+            'pack_banned': 'Заблокирован стикерпак <b>{stickerpack_name}</b>, содержащий <code>{count}</code> шт. стикеров.\n'
+                                'Для разблокировки попросите администратора ввести команду <code>/stickerpack_unban {stickerpack_name}</code>',
+            'pack_unbanned': 'Стикерпак <b>{stickerpack_name}</b> разблокирован.',
+        },
 
-        'user_unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}>{admin_name}</a>.'
+        'users': {
+            'banned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> заблокирован администратором <a href="tg://user?id={admin_id}>{admin_name}</a>.',
+            'unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}>{admin_name}</a>.',
+            'kicked_warns': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> исключен за превышение допустимого числа предупреждений: <b>{count_warns}</b>'
+        }
     },
     'en': {},
     'uz': {},

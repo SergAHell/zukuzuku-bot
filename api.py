@@ -79,7 +79,7 @@ def register_admins(msg):
     with DataConn(db) as conn:
         cursor = conn.cursor()
         for i in bot.get_chat_administrators(chat_id):
-            sql = 'SELECT * FROM `chat_admins` WHERE `user_id` = {user_id} AND `chat_id` = {chat_id}'.format(
+            sql = 'SELECT * FROM `chat_admins` WHERE `admin_id` = {user_id} AND `chat_id` = {chat_id}'.format(
                 user_id = i.user.id,
                 chat_id = chat_id
             )
@@ -90,7 +90,8 @@ def register_admins(msg):
                     chat_id,
                     msg.chat.title,
                     i.user.first_name,
-                    i.user.id
+                    i.user.id,
+                    i.status
                 )
                 cursor.execute(sql)
                 conn.commit()
@@ -104,32 +105,36 @@ def ban_sticker(msg, sticker_id):
     """
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT * FROM `banned_stickers` WHERE `chat_id` = {id} AND `sticker_id` = {sticker_id}'.format(
+        sql = 'SELECT * FROM `banned_stickers` WHERE `chat_id` = "{id}" AND `sticker_id` = "{sticker_id}"'.format(
             id = msg.chat.id,
             sticker_id = sticker_id
         )
         cursor.execute(sql)
         res = cursor.fetchone()
         if res is None:
-            sql = 'INSERT INTO `banned_stickers` (`chat_id`, `chat_name`, `sticker_id`, `ban_time`) VALUES ("{chat_id}", "{chat_name}", "{sticker_id}", "{ban_time}"'.format(
+            sql = 'INSERT INTO `banned_stickers`(`chat_id`, `chat_name`, `sticker_id`, `ban_time`) VALUES ("{chat_id}", "{chat_name}", "{sticker_id}", "{ban_time}")'.format(
                 chat_id = msg.chat.id,
                 chat_name = msg.chat.title,
                 sticker_id = sticker_id,
                 ban_time = int(time.time())
             )
             sql = sql
-            cursor.execute(sql)
-            conn.commit()
+            try:
+                cursor.execute(sql)
+                conn.commit()
+            except Exception as e:
+                print(sql)
+                print(e)
         else:
             if res != msg.chat.title:
-                sql = 'SELECT * FROM `banned_stickers` WHERE `chat_id` = {id}'.format(
+                sql = 'SELECT * FROM `banned_stickers` WHERE `chat_id` = "{id}"'.format(
                     id = msg.chat.id
                 )
                 sql = sql
                 cursor.execute(sql)
                 res = cursor.fetchall()
                 for i in res:
-                    sql = 'UPDATE `banned_stickers` SET `chat_name` = {chat_name} WHERE `chat_id` = {id}'.format(
+                    sql = 'UPDATE `banned_stickers` SET `chat_name` = "{chat_name}" WHERE `chat_id` = "{id}"'.format(
                         chat_name = msg.chat.title,
                         id = msg.chat.id
                     )
@@ -145,14 +150,14 @@ def unban_sticker(msg, sticker_id):
     """
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT * FROM `banned_stickers` WHERE `chat_id` = {id} and `sticker_id` = {sticker_id}'.format(
+        sql = 'SELECT * FROM `banned_stickers` WHERE `chat_id` = "{id}" and `sticker_id` = "{sticker_id}"'.format(
             id = msg.chat.id,
             sticker_id = sticker_id
         )
         cursor.execute(sql)
         res = cursor.fetchone()
         if res is not None:
-            sql = 'DELETE FROM `banned_stickers` WHERE `chat_id` = {id} AND `sticker_id` = {sticker_id}'.format(
+            sql = 'DELETE FROM `banned_stickers` WHERE `chat_id` = "{id}" AND `sticker_id` = "{sticker_id}"'.format(
                 id = msg.chat.id,
                 sticker_id = sticker_id
             )
@@ -266,6 +271,21 @@ def register_new_chat(msg):
             utils.notify_new_chat(msg)
             register_admins(msg)
         else:
+            sql = 'INSERT INTO `group_settings` (`chat_id`, `language`, `get_notifications`, `greeting`, `delete_url`, `delete_system`) VALUES ("{chat_id}", "{language}", "{get_notifications}", "{greeting}", "{delete_url}", "{delete_system}")'.format(
+                chat_id = msg.chat.id,
+                language = 'ru',
+                get_notifications = 1,
+                greeting = r'ТЕСТОВОЕ ОПОВЕЩЕНИЕ',
+                delete_url = 0,
+                delete_system = 1
+            )
+            sql = sql
+            try:
+                cursor.execute(sql)
+                conn.commit()
+            except Exception as e:
+                logging.error('error')
+                logging.error(sql)
             register_admins(msg)
 def get_users_count():
     """
@@ -297,7 +317,7 @@ def get_user_param(user_id, column):
     """
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT `{column}` FROM user_settings WHERE `user_id` = "{id}"'.format(
+        sql = 'SELECT `{column}` FROM `user_settings` WHERE `user_id` = "{id}"'.format(
             column = column,
             id = user_id
         )
@@ -321,7 +341,7 @@ def set_user_param(user_id, column, state):
 def get_group_param(msg, column):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT `{column}` FROM group_settings WHERE `chat_id` = {id}'.format(
+        sql = 'SELECT `{column}` FROM group_settings WHERE `chat_id` = "{id}"'.format(
             column = column,
             id = msg.chat.id
         )
@@ -333,7 +353,7 @@ def get_group_param(msg, column):
 def set_group_param(msg, column, state):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'UPDATE `group_settings` SET `{column}` = "{state}" WHERE `chat_id` = {id}'.format(
+        sql = 'UPDATE `group_settings` SET `{column}` = "{state}" WHERE `chat_id` = "{id}"'.format(
             column = column,
             state = state,
             id = msg.chat.id
@@ -344,7 +364,7 @@ def set_group_param(msg, column, state):
 def is_user_new(msg):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT * FROM users WHERE `user_id` = {id}'.format(
+        sql = 'SELECT * FROM users WHERE `user_id` = "{id}"'.format(
             id = msg.from_user.id
         )
         sql = sql
@@ -359,7 +379,7 @@ def is_user_new(msg):
 def check_sticker(sticker_id, chat_id):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT * FROM `banned_sticker` WHERE `sticker_id` = {sticker} AND `chat_id` = {chat}'.format(
+        sql = 'SELECT * FROM `banned_stickers` WHERE `sticker_id` = "{sticker}" AND `chat_id` = "{chat}"'.format(
             sticker = sticker_id,
             chat = chat_id
         )
@@ -369,3 +389,27 @@ def check_sticker(sticker_id, chat_id):
             return False
         else:
             return True
+
+def get_warns(user_id, chat_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `warns` WHERE `user_id` = "{user_id}" AND `chat_id` = "{chat_id}"'.format(
+            user_id = user_id,
+            chat_id = chat_id
+        )
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        warns = int(res['warns'])
+        return warns
+
+def new_warn(user_id, chat_id):
+    with DataConn(db) as conn:
+        warns = get_warns(user_id, chat_id)
+        warns += 1
+        sql = 'UPDATE `warns` SET `warns` = "{warns}" WHERE `user_id` = "{user_id}" AND `chat_id` = "{chat_id}"'.format(
+            warns = warns,
+            user_id = user_id,
+            chat_id = chat_id
+        )
+        cursor.execute(sql)
+        conn.commit()

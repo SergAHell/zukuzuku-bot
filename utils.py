@@ -44,7 +44,8 @@ logging.basicConfig(
 
 def new_referral(msg, referrer_id=303986717):
     r = api.get_user_param(referrer_id, 'refs')
-    int(r) += 1 
+    r = int(r)
+    r += 1 
     api.set_user_param(referrer_id, 'refs', r)
 
 def notify_new_user(call):
@@ -115,7 +116,7 @@ def ban_stickerpack(msg, sticker):
             ban_sticker(msg, i.file_id)
         bot.send_message(
             msg.chat.id,
-            text.user_messages[get_group_lang(msg)]['commands']['stickerpack_banned'].format(
+            text.group_commands[get_group_lang(msg)]['stickers']['pack_banned'].format(
                 stickerpack_name = stickerpack_name,
                 count = len(stickerpack.stickers)
             ),
@@ -131,7 +132,7 @@ def unban_stickerpack(msg, stickerpack_name):
             unban_sticker(msg, i.file_id)
         bot.send_message(
             msg.chat.id,
-            text.user_messages[get_group_lang(msg)]['commands']['stickerpack_unbanned'].format(
+            text.group_commands[get_group_lang(msg)]['stickers']['pack_unbanned'].format(
                 stickerpack_name = stickerpack_name
             ),
             parse_mode='HTML'
@@ -182,7 +183,7 @@ def check_greeting(text):
 
 def standart_greeting(msg):
     key = random.choice(text.group_messages['ru']['greetings_file_id'])
-    bot.send_document(
+    bot.send_photo(
         msg.chat.id,
         key,
         caption=text.group_messages['ru']['greetings'][key]
@@ -296,6 +297,22 @@ def unban_user(msg, user_id):
             text.group_commands[get_group_lang(msg)]['errors']['not_restricted']
         )
 
+
+def new_warn(msg):
+    user_id = msg.reply_to_message.from_user.id
+    chat_id = msg.chat.id
+    api.new_warn(
+        user_id = user_id,
+        chat_id = chat_id
+    )
+    curr = api.get_warns(
+        user_id = user_id,
+        chat_id = chat_id
+    )
+    max_warns = api.get_group_param(msg, 'max_warns')
+    if curr >= max_warns:
+        kick_user_warns(msg, max_warns)
+
 ############################################################
 ############################################################
 
@@ -341,6 +358,26 @@ def parse_arg(msg):
     words = re.split(' ', msg.text)
     return words[1]
 
+def kick_user_warns(msg, max_warns):
+    bot.kick_chat_member(
+        msg.chat.id,
+        msg.reply_to_message.from_user.id,
+        until_date=str(time.time() + 31)
+        )
+    bot.unban_chat_member(
+        msg.chat.id, 
+        msg.reply_to_message.from_user.id
+        )
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands[get_group_lang(msg)]['users']['kicked_warns'].format(
+            user_id = msg.reply_to_message.from_user.id,
+            user_name = msg.reply_to_message.from_user.first_name,
+            count_warns = max_warns
+            ),
+            parse_mode='HTML'
+        )
+
 ############################################################
 ############################################################
 
@@ -353,11 +390,13 @@ def parse_arg(msg):
 def not_enought_rights(msg):
     bot.send_message(
         msg.chat.id,
-        text.group_commands[get_group_lang(msg)]['errors']['not_enought_rights']
+        text.group_commands[get_group_lang(msg)]['errors']['not_enough_rights'],
+        parse_mode='HTML'
     )
 
 def no_args(msg):
     bot.send_message(
         msg.chat.id,
-        text.group_commands[get_group_lang(msg)]['errors']['no_args_provided']
+        text.group_commands[get_group_lang(msg)]['errors']['no_args_provided'],
+        parse_mode='HTML'
     )

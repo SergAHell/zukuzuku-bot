@@ -27,7 +27,7 @@ WEBHOOK_SSL_PRIV = './webhook_pkey.pem'  # Путь к приватному кл
 WEBHOOK_URL_BASE = "https://%s:%s" % (WEBHOOK_HOST, WEBHOOK_PORT)
 WEBHOOK_URL_PATH = "/%s/" % (config.token)
 
-bot = telebot.TeleBot(token=config.token)
+bot = telebot.TeleBot(token=config.token, threaded=True)
 
 telebot_logger = logging.getLogger('telebot')
 sqlite_info = logging.getLogger('sqlite')
@@ -262,13 +262,14 @@ def bot_lang(msg):
 
 @bot.message_handler(commands=['ping'])
 def bot_ping(msg):
-    bot.reply_to(
-        msg,
+    bot.send_message(
+        msg.chat.id,
         text.user_messages['ru']['commands']['ping'].format(
-            unix_time=int(time.time())
-            ),
+            unix_time = int(time.time())
+        ),
+        reply_to_message_id=msg.message_id,
         parse_mode='HTML'
-        )
+    )
 
 
 @bot.message_handler(content_types=['new_chat_members'])
@@ -322,7 +323,7 @@ def bot_stickerpack_unban(msg):
 @bot.message_handler(commands=['sticker_ban'], func=lambda msg: msg.chat.type == 'supergroup')
 def bot_sticker_ban(msg):
     if utils.check_status(msg):
-        sticker_id = msg.sticker.file_id
+        sticker_id = msg.reply_to_message.sticker.file_id
         utils.ban_sticker(msg, sticker_id)
     elif not utils.check_status(msg):
         utils.not_enought_rights(msg)
@@ -358,8 +359,14 @@ def bot_about(msg):
         text.user_messages[utils.get_user_lang(msg)]['about'],
         parse_mode='Markdown')
 
+@bot.message_handler(commands=['warn'], func=lambda msg: msg.chat.type != 'private')
+def bot_new_warn(msg):
+    if utils.check_status(msg):
+        utils.new_warn(msg)
+    else:
+        utils.not_enought_rights(msg)
 
-
+        
 
 
 @bot.message_handler(content_types=['photo'], func = lambda msg: msg.chat.id == 303986717)

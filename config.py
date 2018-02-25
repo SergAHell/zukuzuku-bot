@@ -1,6 +1,7 @@
 # coding: utf8
 
 token = '495038140:AAFtv5DxvaxKzUluCnApOaWkM5hfxATzYQU'
+test_token = '533794679:AAHRFlYOqRgzUvI_YoFd7Z5G1IgOY2iY6hc'
 
 adminID = 303986717
 
