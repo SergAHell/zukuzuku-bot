@@ -10,6 +10,7 @@ import requests
 import telebot
 
 import config
+import ujson
 import utils
 
 bot = telebot.TeleBot(token = config.token)
@@ -73,6 +74,13 @@ logging.basicConfig(
                     level = logging.INFO
                     )
 
+
+def replacer(text):
+    text_list = list(text)
+    for i in range(len(text)):
+        if text_list[i] in config.restricted_characters:
+            text_list[i] = config.restricted_characters_replace[text_list[i]]
+    return ''.join(text_list)
 
 def register_admins(msg):
     chat_id = msg.chat.id
@@ -238,13 +246,14 @@ def register_new_chat(msg):
         res = cursor.fetchone()
         if res is None:
             creator = get_creator(msg)
-            sql = 'INSERT INTO `chats` (`chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`) VALUES ("{chat_id}", "{chat_name}", "{creator_name}", "{creator_id}", "{count}", "{curr_time}")'.format(
+            sql = """INSERT INTO `chats` (`chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES ("{chat_id}", "{chat_name}", "{creator_name}", "{creator_id}", "{count}", "{curr_time}", '{settings}')""".format(
                 chat_id = msg.chat.id,
                 chat_name = msg.chat.title,
                 creator_name = creator.first_name,
                 creator_id = creator.id,
                 count = bot.get_chat_members_count(msg.chat.id),
-                curr_time = int(time.time())
+                curr_time = int(time.time()),
+                settings = ujson.dumps(config.default_group_settings)
             )
             sql = sql
             try:
@@ -287,6 +296,7 @@ def register_new_chat(msg):
                 logging.error('error')
                 logging.error(sql)
             register_admins(msg)
+
 def get_users_count():
     """
     Возвращает количество пользователей в базе\n
@@ -338,25 +348,20 @@ def set_user_param(user_id, column, state):
         cursor.execute(sql)
         conn.commit()
 
-def get_group_param(msg, column):
+def get_group_params(chat_id):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT `{column}` FROM group_settings WHERE `chat_id` = "{id}"'.format(
-            column = column,
-            id = msg.chat.id
-        )
-        sql = sql
+        sql = 'SELECT `settings` FROM `chats` WHERE `chat_id` = {}'.format(chat_id)
         cursor.execute(sql)
         res = cursor.fetchone()
-        return res[column]
+        return ujson.loads(res['settings'])
 
-def set_group_param(msg, column, state):
+def change_group_params(chat_id, new_params):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'UPDATE `group_settings` SET `{column}` = "{state}" WHERE `chat_id` = "{id}"'.format(
-            column = column,
-            state = state,
-            id = msg.chat.id
+        sql = """UPDATE `chats` SET `settings` = '{params}' WHERE `chat_id` = "{chat_id}" """.format(
+            params = new_params,
+            chat_id = chat_id
         )
         cursor.execute(sql)
         conn.commit()
@@ -413,3 +418,10 @@ def new_warn(user_id, chat_id):
         )
         cursor.execute(sql)
         conn.commit()
+
+def get_all():
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `chats`'
+        cursor.execute(sql)
+        return cursor.fetchall()

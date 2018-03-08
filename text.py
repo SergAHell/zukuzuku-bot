@@ -150,9 +150,15 @@ group_commands = {
             'pack_unbanned': 'Стикерпак <b>{stickerpack_name}</b> разблокирован.',
         },
 
+        'restricted': {
+            'url': 'Удалена ссылка от <a href="tg://user?id={user_id}">{user_name}</a>, так как в чате ссылки разрешены только для администрации.',
+            'bot': 'Бот исключен, так как в чате запрещены боты. Для того чтобы добавить его, несмотря на это ограчение, необходимо добавлять бота с правами администратора. Подойдут любые права, а сразу после приглашения их можно забрать.'
+        },
+
         'users': {
-            'banned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> заблокирован администратором <a href="tg://user?id={admin_id}>{admin_name}</a>.',
-            'unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}>{admin_name}</a>.',
+            'ro': '<a href="tg://user?id={admin_id}">{admin_name}</a> попросил <a href="tg://user?id={user_id}">{user_name}</a> помолчать на <code>{time_sec}</code> сек.',
+            'banned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> заблокирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.',
+            'unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.',
             'kicked_warns': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> исключен за превышение допустимого числа предупреждений: <b>{count_warns}</b>'
         }
     },
@@ -173,4 +179,12 @@ service_messages = {
                 'ID: <code>{chat_id}</code>\n'
                 'Численность группы: <b>{chat_users_amount}</b> чел.\n'
                 'Всего чатов в базе: <b>{chat_amount}</b> шт.'
+}
+
+reports_messages = {
+    'report': {
+       'to_admin': 'Вас вызвали в группе <b>{group_name}</b>, прошу обратить внимание.',
+       'to_user': 'Спасибо, мы обработаем ваше обращение.\n' 
+                  '<b>Учтите, что спам данной командой часто влечет за собой наказание со стороны администрации чата.</b>'
+    }
 }

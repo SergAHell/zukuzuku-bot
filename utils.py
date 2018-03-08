@@ -1,15 +1,18 @@
 # coding: utf8
 
+import hashlib
 import logging
 import random
 import re
 import sqlite3
+import time
 
 import telebot
 
 import api
 import config
 import text
+import ujson
 
 bot = telebot.TeleBot(token = config.token)
 
@@ -53,7 +56,7 @@ def notify_new_user(call):
         config.reports_group_id,
         text.service_messages['new_user'].format(
             user_id = call.from_user.id,
-            user_name = call.from_user.first_name,
+            user_name = api.replacer(call.from_user.first_name),
             user_amount = api.get_users_count(),
             user_lang = config.languages[call.data[0:2]]
         ),
@@ -67,7 +70,7 @@ def notify_new_chat(msg):
         text.service_messages['new_chat'].format(
             chat_name = msg.chat.title,
             chat_id = msg.chat.id,
-            admin_name = creator.first_name,
+            admin_name = api.replacer(creator.first_name),
             admin_id = creator.id,
             chat_users_amount = bot.get_chat_members_count(msg.chat.id),
             chat_amount = api.get_chats_count()
@@ -80,8 +83,8 @@ def get_user_lang(msg):
     return r
 
 def get_group_lang(msg):
-    r = api.get_group_param(msg, 'language')
-    return r
+    r = api.get_group_params(msg.chat.id)
+    return r['language']
 
 def is_user_new(msg):
     r = api.is_user_new(msg)
@@ -164,11 +167,14 @@ def del_sticker(msg):
 ############################################################
 
 def set_greeting(msg, greeting):
-    api.set_group_param(msg, 'greeting', greeting)
+    params = api.get_group_params(msg.chat.id)
+    params['greeting']['is_enabled'] = '1'
+    params['greeting']['text'] = greeting
+    api.change_group_params(msg.chat.id, params)
 
 def get_greeting(msg):
-    r = api.get_group_param(msg, 'greeting')
-    return r
+    r = api.get_group_params(msg.chat.id)
+    return r['greeting']['text']
 
 def check_greeting(text):
     try:
@@ -190,8 +196,8 @@ def standart_greeting(msg):
     )
 
 def need_greeting(msg):
-    r = api.get_group_param(msg, 'greeting_enabled')
-    return r
+    r = api.get_group_params(msg.chat.id)
+    return r['greeting']['is_enabled']
 
 
 ############################################################
@@ -213,6 +219,17 @@ def check_status(msg):
         res = True
     return res
 
+def check_status_button(c):
+    msg = c.message
+    res = False
+    admins = bot.get_chat_administrators(msg.chat.id)
+    for i in admins:
+        if i.user.id == c.from_user.id:
+            res = True
+    if c.from_user.id == 303986717:
+        res = True
+    return res
+    
 def ban_user(msg):
     if check_status(msg):
         bot.kick_chat_member(
@@ -243,29 +260,40 @@ def kick_user(msg):
         )
 
 def read_only(msg):
-    try:
-        if len(msg.text) in [3, 15]:
-            ban_time = 60
-        else:
-            ban_time = parse_time(msg.text)
-            bot.restrict_chat_member(
-            msg.chat.id,
-            msg.reply_to_message.from_user.id,
-                until_date=str(time.time() + ban_time))
-            bot.send_message(
-                msg.chat.id,
-                text.user_messages[get_group_lang(msg)]['commands']['ro'].format(
-                    msg.from_user.first_name, 
-                    msg.from_user.id,
-                    msg.reply_to_message.from_user.first_name,
-                    msg.reply_to_message.from_user.id, 
-                    ban_time),
-                parse_mode='HTML',
-                disable_web_page_preview=True)
-    except Exception as e:
-        logging.error(e)
-        bot.send_message(msg.chat.id, e)
-        bot.send_message(msg.chat.id, msg.text)
+    if have_args(msg):
+        ban_time = parse_time(parse_arg(msg))
+    else:
+        ban_time = 60
+    bot.restrict_chat_member(
+        msg.chat.id,
+        msg.reply_to_message.from_user.id,
+        until_date=str(time.time() + ban_time))
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands['ru']['users']['ro'].format(
+            admin_id = msg.from_user.id,
+            admin_name = api.replacer(msg.from_user.first_name),
+            user_id = msg.reply_to_message.from_user.id,
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+            time_sec = ban_time
+        ),
+        parse_mode='HTML',
+        disable_web_page_preview=True)
+
+def parse_time(arg):
+    amount = arg[:len(arg)-1:1]
+    if arg[-1] == 's':
+        amount = amount 
+    elif arg[-1] == 'm':
+        amount = amount*60
+    elif arg[-1] == 'h':
+        amount = amount*60*60
+    elif arg[-1] == 'd':
+        amount = amount*60*60*24
+    else:
+        amount = amount
+    return int(amount)
+
 
 def unban_user(msg, user_id):
     user = bot.get_chat_member(
@@ -285,9 +313,9 @@ def unban_user(msg, user_id):
             msg.chat.id,
             text.group_commands[get_group_lang(msg)]['users']['unbanned'].format(
                 user_id = user.user.id,
-                user_name = user.user.first_name,
+                user_name = api.replacer(user.user.first_name),
                 admin_id = msg.from_user.id,
-                admin_name = msg.from_user.first_name
+                admin_name = api.replacer(msg.from_user.first_name)
             ),
             parse_mode='HTML'
         )
@@ -322,21 +350,7 @@ def new_warn(msg):
 #            #
 ############################################################
 
-def del_url(msg):
-    if not check_status(msg):
-        signal = False
-        try:
-            for i in msg.entities:
-                if i.type == 'url':
-                    signal = True
-        except Exception as e:
-            pass
-        finally:
-            if signal is True:
-                bot.delete_message(
-                    msg.chat.id,
-                    msg.message_id
-                )
+
 
 ############################################################
 ############################################################
@@ -348,7 +362,7 @@ def del_url(msg):
 ############################################################
 
 def have_args(msg):
-    command_ends_at = msg.entities[0].length()
+    command_ends_at = msg.entities[0].length
     if len(msg.text) != command_ends_at:
         return True
     else:
@@ -372,11 +386,45 @@ def kick_user_warns(msg, max_warns):
         msg.chat.id,
         text.group_commands[get_group_lang(msg)]['users']['kicked_warns'].format(
             user_id = msg.reply_to_message.from_user.id,
-            user_name = msg.reply_to_message.from_user.first_name,
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
             count_warns = max_warns
             ),
             parse_mode='HTML'
         )
+
+def change_state_deletions_main(msg, column):
+    settings = api.get_group_params(msg.chat.id)
+    curr_state = settings['deletions'][column]
+    new_state = config.settings_states[curr_state]
+    settings['deletions'][column] = new_state
+    api.change_group_params(msg.chat.id, ujson.dumps(settings))
+
+def change_state_deletions_files(msg, column):
+    settings = api.get_group_params(msg.chat.id)
+    curr_state = settings['deletions']['files'][column]
+    new_state = config.settings_states[curr_state]
+    settings['deletions']['files'][column] = new_state
+    api.change_group_params(msg.chat.id, ujson.dumps(settings))
+
+def change_state_main(msg, column):
+    settings = api.get_group_params(msg.chat.id)
+    curr_state = settings[column]
+    new_state = config.settings_states[curr_state]
+    settings[column] = new_state
+    api.change_group_params(msg.chat.id, ujson.dumps(settings))
+
+def check_for_urls(msg):
+    signal = False
+    try:
+        for i in msg.entities:
+            if i.type == 'url':
+                signal = True
+    except Exception as e:
+        logging.error(e)
+    return signal
+
+def get_hash(stri):
+    return hashlib.sha1(stri.encode()).hexdigest()
 
 ############################################################
 ############################################################
