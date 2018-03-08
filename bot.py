@@ -1,5 +1,6 @@
 # coding: utf8
 
+import datetime
 import logging
 import random
 import re
@@ -27,7 +28,7 @@ WEBHOOK_SSL_PRIV = './webhook_pkey.pem'  # Путь к приватному кл
 WEBHOOK_URL_BASE = "https://%s:%s" % (WEBHOOK_HOST, WEBHOOK_PORT)
 WEBHOOK_URL_PATH = "/%s/" % (config.token)
 
-bot = telebot.TeleBot(token=config.token, threaded=True)
+bot = telebot.AsyncTeleBot(token=config.token, threaded=True)
 
 telebot_logger = logging.getLogger('telebot')
 sqlite_info = logging.getLogger('sqlite')
@@ -174,6 +175,11 @@ def group_setting(msg):
     keyboard.add(btn)
     return keyboard
 
+def delete_settings(msg):
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    curr_settings = api.get_group_params(msg.chat.id)
+    btn = types.InlineKeyboardButton(text = '')
+
 @bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == config.channel_ID)
 def bot_broadcast(msg):
     bot.forward_message(config.adminID, msg.chat.id, msg.forward_from_message_id)
@@ -185,7 +191,7 @@ def bot_answ(msg):
     message = msg
     bot.send_message(
         msg.chat.id, 
-        '<code>Настройки группы</code>', 
+        '<b>Настройки группы</b>', 
         reply_markup=group_setting(msg),
         parse_mode='HTML'
     )
@@ -266,7 +272,8 @@ def bot_ping(msg):
     bot.send_message(
         msg.chat.id,
         text.user_messages['ru']['commands']['ping'].format(
-            unix_time = int(time.time())
+            unix_time = datetime.datetime.time(datetime.datetime.now()),
+            working_time = round((time.time()-msg.date), 3)
         ),
         reply_to_message_id=msg.message_id,
         parse_mode='HTML'

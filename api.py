@@ -314,10 +314,10 @@ def get_chats_count():
     """
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT * FROM chats'
+        sql = 'SELECT COUNT(chat_id) FROM chats'
         cursor.execute(sql)
-        res = cursor.fetchall()
-        return len(res)
+        res = cursor.fetchone()
+        return res['COUNT(chat_id)']
 
 def get_user_param(user_id, column):
     """
@@ -404,11 +404,22 @@ def get_warns(user_id, chat_id):
         )
         cursor.execute(sql)
         res = cursor.fetchone()
-        warns = int(res['warns'])
+        if res is None:
+            sql = 'INSERT INTO `warns`(`user_id`, `chat_id`, `warns`) VALUES ("{user_id}","{chat_id}","{warns}")'.format(
+                user_id = user_id,
+                chat_id = chat_id,
+                warns = 0
+            )
+            warns = 1
+            cursor.execute(sql)
+            conn.commit()
+        else:
+            warns = int(res['warns'])
         return warns
 
 def new_warn(user_id, chat_id):
     with DataConn(db) as conn:
+        cursor = conn.cursor()
         warns = get_warns(user_id, chat_id)
         warns += 1
         sql = 'UPDATE `warns` SET `warns` = "{warns}" WHERE `user_id` = "{user_id}" AND `chat_id` = "{chat_id}"'.format(
@@ -425,3 +436,10 @@ def get_all():
         sql = 'SELECT * FROM `chats`'
         cursor.execute(sql)
         return cursor.fetchall()
+
+def replacerr(text):
+    text_list = list(text) 
+    for idx, word in enumerate(text):
+        if word in config.restricted_characters:
+            text_list[idx] = config.restricted_characters_replace[word]
+    return ''.join(text_list)

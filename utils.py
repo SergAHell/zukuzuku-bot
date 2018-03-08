@@ -235,27 +235,30 @@ def ban_user(msg):
         bot.kick_chat_member(
             msg.chat.id,
             msg.reply_to_message.from_user.id,
-            until_date=str(time.time() + 31708800))
-        bot.reply_to(msg, text.user_messages['ru']['commands']['ban'].format(
-            user=msg.reply_to_message.from_user.first_name,
-            user_id=msg.reply_to_message.from_user.id,
-            admin=msg.from_user.first_name,
-            admin_id=msg.from_user.id),
-            parse_mode = 'HTML')    
+            until_date = str(time.time() + 31708800))
+        bot.reply_to(msg, text.group_commands[get_group_lang(msg)]['users']['banned'].format(
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+            user_id = msg.reply_to_message.from_user.id,
+            admin_name = api.replacer(msg.from_user.first_name),
+            admin_id = msg.from_user.id
+            ),
+            parse_mode = 'HTML'
+        )    
 
 def kick_user(msg):
     if check_status(msg):
         bot.kick_chat_member(
             msg.chat.id,
             msg.reply_to_message.from_user.id,
-            until_date=str(time.time() + 31)
+            until_date = str(time.time() + 31)
         )
         bot.unban_chat_member(msg.chat.id, msg.reply_to_message.from_user.id)
-        bot.reply_to(msg, text.user_messages['ru']['commands']['kick'].format(
-            user=msg.reply_to_message.from_user.first_name,
-            user_id=msg.reply_to_message.from_user.id,
-            admin=msg.from_user.first_name,
-            admin_id=msg.from_user.id), 
+        bot.reply_to(msg, text.group_commands[get_group_lang(msg)]['users']['kick'].format(
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+            user_id = msg.reply_to_message.from_user.id,
+            admin_name = api.replacer(msg.from_user.first_name),
+            admin_id = msg.from_user.id
+            ),
             parse_mode = 'HTML'
         )
 
@@ -337,7 +340,17 @@ def new_warn(msg):
         user_id = user_id,
         chat_id = chat_id
     )
-    max_warns = api.get_group_param(msg, 'max_warns')
+    max_warns = int(api.get_group_params(msg.chat.id)['warns'])
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands[get_group_lang(msg)]['users']['warn'].format(
+            user_id = user_id,
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+            current_warns = curr,
+            max_warns = max_warns
+        ),
+        parse_mode = 'HTML'
+    )
     if curr >= max_warns:
         kick_user_warns(msg, max_warns)
 

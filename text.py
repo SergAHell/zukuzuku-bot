@@ -32,7 +32,8 @@ user_messages = {
             'stickerpack_unbanned': 'Стикерпак <b>{stickerpack_name}</b> разблокирован.',
             'sticker_unban': 'Стикер <b>{sticker_id}</b> разблокирован.',
             'ro': '<a href="tg://user?id={admin_id}">{admin}</a> попросил <a href="tg://user?id={user_id}">{user} помолчать на {time_sec} сек.</a>',
-            'ping': 'Бот функционирует нормально. Текущее UNIX-время: <code>{unix_time}</code>',
+            'ping': 'Бот функционирует нормально. Серверное время: <code>{unix_time}</code>\n'
+                    'Бот отреагировал на сообщение за <code>{working_time}</code> сек.',
             'ban': 'Пользователь <a href="tg://user?id={user_id}">{user}</a> забанен администратором <a href="tg://user?id={admin_id}">{admin}</a>. \nДля разбана используйте команду <code>/unban {user_id}</code>.',
             'unban': 'Пользователь <a href="tg://user?id={user_id}">{user}</a> разбанен администратором <a href="tg://user?id={admin_id}">{admin}</a>',
             'kick': 'Пользователь <a href="tg"//user?id={user_id}>{user}</a> исключен администратором <a href="tg://user?id={admin_id}">{admin}</a>'
@@ -156,8 +157,13 @@ group_commands = {
         },
 
         'users': {
+            'warn': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> предупрежден.\n'
+                    'Кол-во предупреждений: <b>{current_warns}</b>.\n'
+                    'Максимальное количество предупреждений, после которых пользователь исключается из группы: <b>{max_warns}</b>.',
+            'kick': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> исключен администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.',
             'ro': '<a href="tg://user?id={admin_id}">{admin_name}</a> попросил <a href="tg://user?id={user_id}">{user_name}</a> помолчать на <code>{time_sec}</code> сек.',
-            'banned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> заблокирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.',
+            'banned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> заблокирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.\n'
+                      'Для разблокировки введите команду <code>/unban {user_id}</code>',
             'unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.',
             'kicked_warns': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> исключен за превышение допустимого числа предупреждений: <b>{count_warns}</b>'
         }
@@ -178,12 +184,14 @@ service_messages = {
                 'Создатель: <a href="tg://user?id={admin_id}">{admin_name}</a>\n'
                 'ID: <code>{chat_id}</code>\n'
                 'Численность группы: <b>{chat_users_amount}</b> чел.\n'
-                'Всего чатов в базе: <b>{chat_amount}</b> шт.'
+                'Всего чатов в базе: <b>{chat_amount}</b> шт.',
+    'stats': ''
 }
 
 reports_messages = {
     'report': {
-       'to_admin': 'Вас вызвали в группе <b>{group_name}</b>, прошу обратить внимание.',
+       'to_admin': 'Вас вызвали в группе <b>{group_name}</b>, прошу обратить внимание.'
+                   'Отправитель - <a href="tg://user?id={user_id}">{user_name}</a>.',
        'to_user': 'Спасибо, мы обработаем ваше обращение.\n' 
                   '<b>Учтите, что спам данной командой часто влечет за собой наказание со стороны администрации чата.</b>'
     }
