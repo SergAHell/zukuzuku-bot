@@ -10,6 +10,7 @@ import requests
 import telebot
 
 import config
+import settings
 import ujson
 import utils
 

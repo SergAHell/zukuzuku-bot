@@ -1,8 +1,8 @@
+import datetime
+import time
+
 import api
 import config
-import time
-import datetime
-
 
 got_time = msg.date
 solved_time = int(time.time())

@@ -11,6 +11,7 @@ import telebot
 
 import api
 import config
+import settings
 import text
 import ujson
 

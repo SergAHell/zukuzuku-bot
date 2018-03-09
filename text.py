@@ -188,6 +188,8 @@ service_messages = {
     'stats': ''
 }
 
+promotion_message = '<b>Лучший бот для администраторов групп - </b>t.me/zukuzukubot'
+
 reports_messages = {
     'report': {
        'to_admin': 'Вас вызвали в группе <b>{group_name}</b>, прошу обратить внимание.'

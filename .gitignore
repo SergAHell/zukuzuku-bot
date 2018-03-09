@@ -1,1 +1,4 @@
+*.pyc
+*.pem
+.vscode/csak-timelog.json
 pyTelegramBotAPI

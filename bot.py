@@ -13,6 +13,7 @@ from telebot import types
 import api
 import cherrypy
 import config
+import settings
 import text
 import ujson
 import utils
@@ -173,12 +174,22 @@ def group_setting(msg):
     keyboard.add(btn)
     btn = types.InlineKeyboardButton(text = 'Исключать ботов{}'.format(config.settings_statuses[curr_settings['kick_bots']]), callback_data='kick_bots')
     keyboard.add(btn)
+    btn = types.InlineKeyboardButton(text = 'Фильтры', callback_data='deletions_settings')
+    keyboard.add(btn)
     return keyboard
 
 def delete_settings(msg):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     curr_settings = api.get_group_params(msg.chat.id)
-    btn = types.InlineKeyboardButton(text = '')
+    btn = types.InlineKeyboardButton(text = 'Удалять фото{}'.format(config.settings_statuses[curr_settings['deletions']['files']['photo']]), callback_data = 'delete_photo')
+    keyboard.add(btn)
+    btn = types.InlineKeyboardButton(text = 'Удалять аудиосообщения{}'.format(config.settings_statuses[curr_settings['deletions']['files']['voice']]), callback_data = 'delete_voice')
+    keyboard.add(btn)
+    btn = types.InlineKeyboardButton(text = 'Удалять видео{}'.format(config.settings_statuses[curr_settings['deletions']['files']['videos']]), callback_data = 'delete_videos')
+    keyboard.add(btn)
+    btn = types.InlineKeyboardButton(text = 'Удалять стикеры{}'.format(config.settings_statuses[curr_settings['deletions']['files']['stickers']]), callback_data = 'delete_stickers')
+    keyboard.add(btn)
+    return keyboard
 
 @bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == config.channel_ID)
 def bot_broadcast(msg):
@@ -284,6 +295,15 @@ def bot_ping(msg):
 def bot_users_new(msg):
     message = msg
     api.register_new_chat(msg)
+    if msg.chat.type == 'channel':
+        bot.send_message(
+            msg.chat.id,
+            text.promotion_message,
+            parse_mode='HTML'
+            )
+        bot.leave_chat(
+            msg.chat.id
+            )
     if msg.new_chat_member.id != 495038140:
         if msg.new_chat_member.is_bot is True and api.get_group_params(msg.chat.id)['kick_bots'] == '1':
                 bot.kick_chat_member(
@@ -308,6 +328,7 @@ def bot_users_new(msg):
             msg.chat.id,
             msg.message_id
         )
+
 @bot.message_handler(content_types=[
     'new_chat_members',
     'left_chat_member', 
@@ -536,6 +557,24 @@ def kick_bots(c):
         bot.answer_callback_query(
             callback_query_id = c.id,
             text = 'Вы не являетесь администратором.'
+        )
+
+@bot.callback_query_handler(func = lambda c: c.data == 'deletions_settings')
+def to_deletions(c):
+    if utils.check_status_button(c):
+        bot.edit_message_reply_markup(
+            chat_id = c.message.chat.id,
+            message_id = c.message.message_id,
+            reply_markup = delete_settings(c.message)
+        )
+        bot.answer_callback_query(
+            callback_query_id = c.id,
+            text = 'Переход выполнен.'
+        )
+    else:
+        bot.answer_callback_query(
+            callback_query_id = c.id,
+            text = 'Вы не являетесь администратором'
         )
 
 # Вебхук
