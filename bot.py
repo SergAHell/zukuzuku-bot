@@ -69,83 +69,6 @@ class WebhookServer(object):
         else:
             raise cherrypy.HTTPError(403)
 
-def bot_send(msg):
-    mesg = '```\n%s\n```' % ujson.dumps(msg, indent=4, ensure_ascii=False)
-    strs = re.split('\n', mesg)
-    number = -1
-    srts = []
-    for i in strs:
-        if i[-5:] != 'null,':
-            number = number + 1
-            srts.append(i)
-    number = -1
-    mesg = ''
-    for i in srts:
-        mesg = mesg + i + '\n'
-    bot.send_message(msg.chat.id, mesg, parse_mode='Markdown')
-
-
-class DataConn:
-    def __init__(self, db_name):
-        self.db_name = db_name
-
-    def __enter__(self):
-        self.conn = sqlite3.connect(self.db_name)
-        return self.conn
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.conn.close()
-        if exc_val:
-            raise
-
-
-def add_to_DB(msg):
-    file_id = msg.reply_to_message.sticker.file_id
-    group_id = msg.chat.id
-    ban_sticker(file_id, group_id)
-
-
-def ban_sticker(file_id, group):
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM db WHERE `StickerFileID` = "{}" and `GroupID` = "{}"'.format(file_id, str(group))
-        cursor.execute(sql)
-        res = cursor.fetchone()
-        if res is None:
-            sql = 'INSERT INTO db VALUES("{}","{}")'.format(str(group), file_id)
-            cursor.execute(sql)
-            conn.commit()
-
-def unban_sticker(sticker, group_ID):
-    file_id = sticker.file_id
-    with DataConn('db.db') as conn:
-        cursor = conn.cursor()
-        sql = 'SELECT * FROM db WHERE `GroupID` = "{group}" AND `StickerFileID` = "{sticker_id}"'.format(
-            group=group_ID, 
-            sticker_id=file_id)
-        res = cursor.execute(sql).fetchone()
-        if res is not None:
-            sql = 'DELETE FROM db WHERE `StickerFileID` = "{sticker_id}" and `GroupID` = "{group}"'.format(
-                group=group_ID, 
-                sticker_id=file_id)
-            cursor.execute(sql)
-            conn.commit()
-
-
-def parse_time(string):
-    l = re.split(' ', string)
-    mult = l[1][-1:]
-    mult_int = 1
-    if mult == 's':
-        mult_int = 1
-    elif mult == 'm':
-        mult_int = 60
-    elif mult == 'h':
-        mult_int = 60 * 60
-    elif mult == 'd':
-        mult_int = 60 * 60 * 24
-    return int(l[1][:-1:]) * mult_int
-
 def create_user_language_keyboard(referrer=303986717):
     lang_keyboard = types.InlineKeyboardMarkup()
     lang_keyboard.add(types.InlineKeyboardButton(text="Русский", callback_data='ru_{ref}_lang'.format(ref=referrer)))
@@ -194,6 +117,12 @@ def delete_settings(msg):
 @bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == config.channel_ID)
 def bot_broadcast(msg):
     bot.forward_message(config.adminID, msg.chat.id, msg.forward_from_message_id)
+
+@bot.channel_post_handler(content_types = ['text'], func = lambda msg: msg.chat.id != config.channel_ID and msg.chat.type == 'channel')
+def bot_leave(msg):
+    bot.leave_chat(
+        msg.chat.id
+    )
 
 
 
@@ -576,6 +505,11 @@ def to_deletions(c):
             callback_query_id = c.id,
             text = 'Вы не являетесь администратором'
         )
+
+@bot.callback_query_handler(func = lambda c: c.data == 'delete_photo')
+def group_settings_deletions_photo(c):
+    if utils.check_status_button(c):
+        utils.change_state_deletion
 
 # Вебхук
 

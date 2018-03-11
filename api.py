@@ -98,7 +98,7 @@ def register_admins(msg):
                 sql = 'INSERT INTO `chat_admins` (`chat_id`, `chat_name`, `admin_name`, `admin_id`, `status`) VALUES ("{}", "{}", "{}", "{}", "{}")'.format(
                     chat_id,
                     msg.chat.title,
-                    i.user.first_name,
+                    replacer(i.user.first_name),
                     i.user.id,
                     i.status
                 )
@@ -211,8 +211,8 @@ def register_new_user(call, lang):
             sql = 'INSERT INTO `users` (`user_id`, `registration_time`, `first_name`, `second_name`, `language`) VALUES ("{id}", "{curr_time}", "{first_name}", "{second_name}", "{lang}")'.format(
                 id = call.from_user.id,
                 curr_time = int(time.time()),
-                first_name = call.from_user.first_name,
-                second_name = sec_name,
+                first_name = replacer(call.from_user.first_name),
+                second_name = replacer(sec_name),
                 lang = lang
             )
             cursor.execute(sql)
@@ -247,10 +247,11 @@ def register_new_chat(msg):
         res = cursor.fetchone()
         if res is None:
             creator = get_creator(msg)
-            sql = """INSERT INTO `chats` (`chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES ("{chat_id}", "{chat_name}", "{creator_name}", "{creator_id}", "{count}", "{curr_time}", '{settings}')""".format(
+            sql = """INSERT INTO `chats` (`db_id`, `chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES ("{db_id}", "{chat_id}", "{chat_name}", "{creator_name}", "{creator_id}", "{count}", "{curr_time}", '{settings}')""".format(
+                db_id = int(get_chats_count())+1
                 chat_id = msg.chat.id,
-                chat_name = msg.chat.title,
-                creator_name = creator.first_name,
+                chat_name = replacer(msg.chat.title),
+                creator_name = replacer(creator.first_name),
                 creator_id = creator.id,
                 count = bot.get_chat_members_count(msg.chat.id),
                 curr_time = int(time.time()),
@@ -434,9 +435,19 @@ def new_warn(user_id, chat_id):
 def get_all():
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT * FROM `chats`'
+        sql = 'SELECT * FROM `chats` ORDER BY `registration_time` ASC'
         cursor.execute(sql)
         return cursor.fetchall()
+
+def change_p(group_id, db_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'UPDATE `chats` SET `db_id` = {} WHERE `chat_id` = {}'.format(
+            db_id,
+            group_id
+        )
+        cursor.execute(sql)
+        conn.commit()
 
 def replacerr(text):
     text_list = list(text) 

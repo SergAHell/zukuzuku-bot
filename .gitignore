@@ -2,3 +2,5 @@
 *.pem
 .vscode/csak-timelog.json
 pyTelegramBotAPI
+.vscode/
+__pycache__/

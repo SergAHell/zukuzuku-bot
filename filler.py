@@ -14,8 +14,7 @@ print(len(l))
 for i in l:
     try:
         counter += 1
-        i['settings'] = ujson.dumps(config.default_group_settings)
-        api.change_group_params(i['chat_id'], i['settings'])
+        sql = api.change_p(i['chat_id'], counter)
         s = 'Completed chats - {}. Used time - {} secs. Speed - {} chats/second. '
         curr_time = time.time()
         print(s.format(

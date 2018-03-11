@@ -285,7 +285,7 @@ def read_only(msg):
         disable_web_page_preview=True)
 
 def parse_time(arg):
-    amount = arg[:len(arg)-1:1]
+    amount = int(arg[:len(arg)-1:1])
     if arg[-1] == 's':
         amount = amount 
     elif arg[-1] == 'm':
