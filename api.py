@@ -248,7 +248,7 @@ def register_new_chat(msg):
         if res is None:
             creator = get_creator(msg)
             sql = """INSERT INTO `chats` (`db_id`, `chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES ("{db_id}", "{chat_id}", "{chat_name}", "{creator_name}", "{creator_id}", "{count}", "{curr_time}", '{settings}')""".format(
-                db_id = int(get_chats_count())+1
+                db_id = int(get_chats_count())+1,
                 chat_id = msg.chat.id,
                 chat_name = replacer(msg.chat.title),
                 creator_name = replacer(creator.first_name),
