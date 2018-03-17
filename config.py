@@ -15,6 +15,12 @@ restricted_characters = [
     '&'
 ]
 
+available_languages = [
+    'ru',
+    'en',
+    'uz'
+]
+
 restricted_characters_replace = {
     '<': '&lt;',
     '>': '&gt;',

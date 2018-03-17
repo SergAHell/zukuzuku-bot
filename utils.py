@@ -7,7 +7,9 @@ import re
 import sqlite3
 import time
 
+import pymysql
 import telebot
+from telebot import types
 
 import api
 import config
@@ -83,6 +85,10 @@ def get_user_lang(msg):
     r = api.get_user_param(msg.chat.id, 'language')
     return r
 
+def is_new_in_chat(msg):
+    pass
+    
+
 def get_group_lang(msg):
     r = api.get_group_params(msg.chat.id)
     return r['language']
@@ -91,6 +97,66 @@ def is_user_new(msg):
     r = api.is_user_new(msg)
     return r
 
+def check_super_user(user_id):
+    if user_id in [303986717, 207737178]:
+        return True
+    else:
+        return False
+
+def update_chat_members(msg):
+    user_id = msg.new_chat_member.id
+    chat_id = msg.chat.id
+    if api.new_user_in_chat(user_id, chat_id):
+        #api.update_members(user_id, chat_id)
+        pass
+
+def check_global_ban(msg):
+    res = False
+    if not check_super_user(msg.from_user.id):
+        res = api.check_global_ban(msg.new_chat_member.id)
+    print(msg.new_chat_member.id)
+    return res
+
+def global_ban(msg):
+    user_id = msg.reply_to_message.from_user.id
+    api.global_ban(user_id)
+    bot.kick_chat_member(
+        msg.chat.id,
+        user_id
+    )
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands['ru']['users']['global_ban'].format(
+            user_id = user_id,
+            user_name = msg.reply_to_message.from_user.first_name
+        ),
+        parse_mode='HTML'
+    )
+    
+def global_unban(msg):
+    user_id = int(parse_arg(msg))
+    usr = bot.get_chat_member(
+        msg.chat.id,
+        user_id
+    )
+    user_name = usr.user.first_name
+    if not api.check_global_ban(user_id):
+        bot.send_message(
+            msg.chat.id,
+            text.group_commands['ru']['errors']['global_not_banned'],
+            parse_mode='HTML'
+        )
+    else:
+        api.global_unban(user_id)
+        bot.send_message(
+            msg.chat.id,
+            text.group_commands['ru']['users']['global_unban'].format(
+                user_id = user_id,
+                user_name = user_name
+            ),
+            parse_mode='HTML'
+        )
+    
 
 ############################################################
 ############################################################
@@ -233,6 +299,12 @@ def check_status_button(c):
     
 def ban_user(msg):
     if check_status(msg):
+        kb = types.InlineKeyboardMarkup()
+        btn = types.InlineKeyboardButton(text = 'Разбанить', callback_data='unban {user_id} {chat_id}'.format(
+            user_id = msg.reply_to_message.from_user.id,
+            chat_id = msg.chat.id
+            ))
+        kb.add(btn)
         bot.kick_chat_member(
             msg.chat.id,
             msg.reply_to_message.from_user.id,
@@ -243,6 +315,7 @@ def ban_user(msg):
             admin_name = api.replacer(msg.from_user.first_name),
             admin_id = msg.from_user.id
             ),
+            reply_markup = kb,
             parse_mode = 'HTML'
         )    
 
@@ -298,7 +371,9 @@ def parse_time(arg):
         amount = amount
     return int(amount)
 
-
+def unban_user_button(c):
+    pass
+    
 def unban_user(msg, user_id):
     user = bot.get_chat_member(
         msg.chat.id,
@@ -354,6 +429,7 @@ def new_warn(msg):
     )
     if curr >= max_warns:
         kick_user_warns(msg, max_warns)
+        api.zeroing_warns(user_id, chat_id)
 
 ############################################################
 ############################################################
@@ -374,6 +450,19 @@ def new_warn(msg):
 #   Утилиты   #
 #             #
 ############################################################
+
+def new_update(msg, end_time):
+    api.new_update(msg, end_time)
+
+def to_bool(in_str):
+    if int(in_str) == 1:
+        return True
+    else:
+        return False
+
+def is_restricted(msg):
+    if msg.content_type in ['photo', 'voice', 'stickers']:
+        return to_bool(api.get_group_params(msg.chat.id)['deletions']['files'][msg.content_type])
 
 def have_args(msg):
     command_ends_at = msg.entities[0].length
@@ -454,6 +543,10 @@ def not_enought_rights(msg):
         msg.chat.id,
         text.group_commands[get_group_lang(msg)]['errors']['not_enough_rights'],
         parse_mode='HTML'
+    )
+    bot.delete_message(
+        msg.chat.id,
+        msg.message_id
     )
 
 def no_args(msg):

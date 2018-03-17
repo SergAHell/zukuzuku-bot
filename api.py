@@ -83,6 +83,8 @@ def replacer(text):
             text_list[i] = config.restricted_characters_replace[text_list[i]]
     return ''.join(text_list)
 
+
+
 def register_admins(msg):
     chat_id = msg.chat.id
     with DataConn(db) as conn:
@@ -98,7 +100,7 @@ def register_admins(msg):
                 sql = 'INSERT INTO `chat_admins` (`chat_id`, `chat_name`, `admin_name`, `admin_id`, `status`) VALUES ("{}", "{}", "{}", "{}", "{}")'.format(
                     chat_id,
                     msg.chat.title,
-                    replacer(i.user.first_name),
+                    escape_string(i.user.first_name),
                     i.user.id,
                     i.status
                 )
@@ -211,8 +213,8 @@ def register_new_user(call, lang):
             sql = 'INSERT INTO `users` (`user_id`, `registration_time`, `first_name`, `second_name`, `language`) VALUES ("{id}", "{curr_time}", "{first_name}", "{second_name}", "{lang}")'.format(
                 id = call.from_user.id,
                 curr_time = int(time.time()),
-                first_name = replacer(call.from_user.first_name),
-                second_name = replacer(sec_name),
+                first_name = escape_string(call.from_user.first_name),
+                second_name = escape_string(sec_name),
                 lang = lang
             )
             cursor.execute(sql)
@@ -250,8 +252,8 @@ def register_new_chat(msg):
             sql = """INSERT INTO `chats` (`db_id`, `chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES ("{db_id}", "{chat_id}", "{chat_name}", "{creator_name}", "{creator_id}", "{count}", "{curr_time}", '{settings}')""".format(
                 db_id = int(get_chats_count())+1,
                 chat_id = msg.chat.id,
-                chat_name = replacer(msg.chat.title),
-                creator_name = replacer(creator.first_name),
+                chat_name = escape_string(msg.chat.title),
+                creator_name = escape_string(creator.first_name),
                 creator_id = creator.id,
                 count = bot.get_chat_members_count(msg.chat.id),
                 curr_time = int(time.time()),
@@ -338,6 +340,16 @@ def get_user_param(user_id, column):
         res = cursor.fetchone()
         return res[column]
 
+def get_user_params(user_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT `settings` FROM `users` WHERE `user_id` = "{user_id}"'.format(
+            user_id = user_id
+        )
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        return res
+
 def set_user_param(user_id, column, state):
     with DataConn(db) as conn:
         cursor = conn.cursor()
@@ -361,12 +373,16 @@ def get_group_params(chat_id):
 def change_group_params(chat_id, new_params):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = """UPDATE `chats` SET `settings` = '{params}' WHERE `chat_id` = "{chat_id}" """.format(
+        sql = '''UPDATE `chats` SET `settings` = '{params}' WHERE `chat_id` = {chat_id}'''.format(
             params = new_params,
             chat_id = chat_id
         )
-        cursor.execute(sql)
-        conn.commit()
+        try:
+            cursor.execute(sql)
+            conn.commit()
+        except Exception as e:
+            print(e)
+            print(sql)
 
 def is_user_new(msg):
     with DataConn(db) as conn:
@@ -412,7 +428,7 @@ def get_warns(user_id, chat_id):
                 chat_id = chat_id,
                 warns = 0
             )
-            warns = 1
+            warns = 0
             cursor.execute(sql)
             conn.commit()
         else:
@@ -424,6 +440,14 @@ def new_warn(user_id, chat_id):
         cursor = conn.cursor()
         warns = get_warns(user_id, chat_id)
         warns += 1
+        set_warns(user_id, chat_id, warns)
+
+def zeroing_warns(user_id, chat_id):
+    set_warns(user_id, chat_id, 0)
+
+def set_warns(user_id, chat_id, warns):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
         sql = 'UPDATE `warns` SET `warns` = "{warns}" WHERE `user_id` = "{user_id}" AND `chat_id` = "{chat_id}"'.format(
             warns = warns,
             user_id = user_id,
@@ -431,6 +455,7 @@ def new_warn(user_id, chat_id):
         )
         cursor.execute(sql)
         conn.commit()
+
 
 def get_all():
     with DataConn(db) as conn:
@@ -455,3 +480,152 @@ def replacerr(text):
         if word in config.restricted_characters:
             text_list[idx] = config.restricted_characters_replace[word]
     return ''.join(text_list)
+
+def escape_string(value):
+    # value = value.replace('\\', r'\\\\')
+    # value = value.replace('\0', r'\\0')
+    # value = value.replace('\n', r'\\n')
+    # value = value.replace('\r', r'\\r')
+    # value = value.replace('\032', r'\\Z')
+    value = value.replace("'", r"\'")
+    value = value.replace('"', r'\"')
+    return value
+
+def update_members(user_id, chat_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'INSERT INTO `chat_users` (`chat_id`, `user_id`, `registration_time`) '
+
+def update_stats_bot(count):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'INSERT INTO `stats` (`amount`, `check_time`) VALUES ("{count}", "{curr_time}")'.format(
+            count = count,
+            curr_time = int(time.time())
+        )
+        cursor.execute(sql)
+        conn.commit()
+
+def delete_pending():
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'DELETE * FROM `stats`'
+        cursor.execute(sql)
+        conn.commit()
+
+def check_global_ban(user_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `global_bans` WHERE `user_id` = "{user_id}"'.format(
+            user_id = user_id
+        )
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        if res is None:
+            return False
+        else:
+            return True
+
+def global_ban(user_id):
+    with DataConn(db) as conn:
+        if not check_global_ban(user_id):
+            cursor = conn.cursor()
+            sql = 'INSERT INTO `global_bans` (`user_id`) VALUES  ("{user_id}")'.format(
+                user_id = user_id
+            )
+            cursor.execute(sql)
+            conn.commit()
+
+def global_unban(user_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'DELETE FROM `global_bans` WHERE `user_id` = "{user_id}"'.format(
+            user_id = user_id
+        )
+        cursor.execute(sql)
+        conn.commit()
+
+def new_update(msg, end_time):
+    user_id = msg.from_user.id
+    chat_id = msg.chat.id
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'INSERT INTO `proceeded_updates` (`user_id`, `chat_id`, `msg_time`, `used_time`, `proceeded_at`) VALUES ("{user_id}", "{chat_id}", "{msg_time}", "{proceeding_time}", "{curr_time}")'.format(
+            user_id = user_id,
+            chat_id = chat_id,
+            msg_time = msg.date,
+            proceeding_time = end_time*1000,
+            curr_time = int(time.time())
+        )
+        cursor.execute(sql)
+        conn.commit()
+    new_content(msg)
+
+def get_file_size(msg):
+    res = 0
+    if msg.content_type == 'audio':
+        res = msg.audio.file_size
+    elif msg.content_type == 'document':
+        res = msg.document.file_size
+    elif msg.content_type == 'photo':
+        res = msg.photo[-1].file_size
+    elif msg.content_type == 'sticker':
+        res = msg.sticker.file_size
+    elif msg.content_type == 'video':
+        res = msg.audio.file_size
+    elif msg.content_type == 'video_note':
+        res = msg.audio.file_size
+    elif msg.content_type == 'voice':
+        res = msg.voice.file_size
+    return res
+
+def get_file_id(msg):
+    res = ''
+    if msg.content_type == 'audio':
+        res = msg.audio.file_id
+    elif msg.content_type == 'document':
+        res = msg.document.file_id
+    elif msg.content_type == 'photo':
+        res = msg.photo[-1].file_id
+    elif msg.content_type == 'sticker':
+        res = msg.sticker.file_id
+    elif msg.content_type == 'video':
+        res = msg.audio.file_id
+    elif msg.content_type == 'video_note':
+        res = msg.audio.file_id
+    elif msg.content_type == 'voice':
+        res = msg.voice.file_id
+    return res
+
+def new_message(msg):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'INSERT INTO `proceeded_messages` (`user_id`, `chat_id`, `content_type`) VALUES ("{user_id}", "{chat_id}", "{cont_type}")'.format(
+            user_id = msg.from_user.id,
+            chat_id = msg.chat.id,
+            msg_time = msg.date,
+            cont_type = msg.content_type
+        )
+        cursor.execute(sql)
+        conn.commit()
+
+
+def new_content(msg):
+    if msg.content_type == 'text':
+        new_message(msg)
+    else:
+        try:
+            with DataConn(db) as conn:
+                cursor = conn.cursor()
+                sql = 'INSERT INTO `{cont_type}` (`user_id`, `chat_id`, `file_id`, `file_size`) VALUES ("{user_id}", "{chat_id}", "{file_id}", "{file_size}")'.format(
+                    cont_type = msg.content_type,
+                    user_id = msg.from_user.id,
+                    chat_id = msg.chat.id,
+                    file_id = get_file_id(msg),
+                    file_size = get_file_size(msg)
+                )
+                cursor.execute(sql)
+                conn.commit()
+        except Exception as e:
+            print(e)
+            print(sql)

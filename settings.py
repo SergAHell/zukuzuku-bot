@@ -41,7 +41,7 @@ default_group_settings = {
 }
 
 default_user_settings = {
-    'language': 'no_language_set',
+    'language': 'no_lang',
     'get_notifications': '1'
 }
 
