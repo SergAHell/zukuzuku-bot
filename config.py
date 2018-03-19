@@ -21,6 +21,13 @@ available_languages = [
     'uz'
 ]
 
+available_attachments = [
+    'audio'
+    'photo',
+    'voice',
+    ''
+]
+
 restricted_characters_replace = {
     '<': '&lt;',
     '>': '&gt;',

@@ -71,11 +71,11 @@ class WebhookServer(object):
         else:
             raise cherrypy.HTTPError(403)
 
-def create_user_language_keyboard(msg):
+def create_user_language_keyboard():
     lang_keyboard = types.InlineKeyboardMarkup()
-    lang_keyboard.add(types.InlineKeyboardButton(text="Русский", callback_data='ru_{ref}_lang'.format(ref=referrer)))
-    lang_keyboard.add(types.InlineKeyboardButton(text="English", callback_data='en_{ref}_lang'.format(ref=referrer)))
-    lang_keyboard.add(types.InlineKeyboardButton(text="O'zbek", callback_data='uz_{ref}_lang'.format(ref=referrer)))
+    lang_keyboard.add(types.InlineKeyboardButton(text="Русский", callback_data='ru_lang'))
+    lang_keyboard.add(types.InlineKeyboardButton(text="English", callback_data='en_lang'))
+    lang_keyboard.add(types.InlineKeyboardButton(text="O'zbek", callback_data='uz__lang'))
     return lang_keyboard
 
 
@@ -153,7 +153,7 @@ def bot_user_start(msg):
         bot.send_message(
             msg.chat.id,
             text.user_messages['start'],
-            reply_markup=create_user_language_keyboard(msg)
+            reply_markup=create_user_language_keyboard()
             )
     else:
         bot.send_message(msg.chat.id, text.user_messages[utils.get_user_lang(msg)]['start'])
@@ -220,7 +220,8 @@ def bot_lang(msg):
     bot.send_message(
         msg.chat.id,
         text.user_messages['start'],
-        reply_markup=create_user_language_keyboard())
+        reply_markup=create_user_language_keyboard()
+    )
     utils.new_update(msg, time.time()-start_time)
 
 @bot.message_handler(commands=['ping'])
@@ -255,7 +256,7 @@ def bot_users_new(msg):
             )
     if msg.new_chat_member.id != 495038140:
         if msg.new_chat_member.is_bot and api.get_group_params(msg.chat.id)['kick_bots'] == '1':
-                bot.kick_chat_member(
+            bot.kick_chat_member(
                 msg.chat.id, 
                 msg.new_chat_member.id
             )
@@ -439,6 +440,15 @@ def bot_new_warn(msg):
         utils.not_enought_rights(msg)
     utils.new_update(msg, time.time()-start_time)
 
+@bot.message_handler(commands=['donate'])
+def bot_donate(msg):
+    start_time = time.time()
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands['ru']['donate'],
+        parse_mode = 'HTML'
+    )
+
 @bot.message_handler(content_types=['text'], func = lambda msg: msg.chat.type == 'supergroup')
 def bot_check_text(msg):
     start_time = time.time()
@@ -616,6 +626,49 @@ def to_deletions(c):
 def group_settings_deletions_photo(c):
     if utils.check_status_button(c):
         utils.change_state_deletions_files(c.message, 'photo')
+        bot.edit_message_reply_markup(
+            chat_id = c.message.chat.id,
+            message_id = c.message.message_id,
+            reply_markup = delete_settings(c.message)
+        )
+        bot.answer_callback_query(
+            callback_query_id = c.id,
+            text = 'Изменения подтверждены.'
+        )
+    else:
+        bot.answer_callback_query(
+            callback_query_id = c.id,
+            text = 'Вы не являетесь администратором'
+        )
+
+
+@bot.callback_query_handler(func = lambda c: c.data == 'delete_voice')
+def group_settings_deletions_photo(c):
+    if utils.check_status_button(c):
+        utils.change_state_deletions_files(c.message, 'voice')
+        bot.edit_message_reply_markup(
+            chat_id = c.message.chat.id,
+            message_id = c.message.message_id,
+            reply_markup = delete_settings(c.message)
+        )
+        bot.answer_callback_query(
+            callback_query_id = c.id,
+            text = 'Изменения подтверждены.'
+        )
+    else:
+        bot.answer_callback_query(
+            callback_query_id = c.id,
+            text = 'Вы не являетесь администратором'
+        )
+
+
+
+
+
+
+
+
+
 
 # Вебхук
 

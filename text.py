@@ -176,7 +176,12 @@ group_commands = {
                       'Для разблокировки введите команду <code>/unban {user_id}</code>',
             'unbanned': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> разблокирован администратором <a href="tg://user?id={admin_id}">{admin_name}</a>.',
             'kicked_warns': 'Пользователь <a href="tg://user?id={user_id}">{user_name}</a> исключен за превышение допустимого числа предупреждений: <b>{count_warns}</b>'
-        }
+        },
+        'donate': 'Ого, кто-то сюда зашел..\n'
+                  'Ну, по такому поводу я могу предложить тебе немного покормить разработчика любым из приведенных ниже способов:\n\n'
+                  '<a href="https://money.yandex.ru/to/410012441742057">Яндекс.Деньги</a>: <code>410012441742057</code>\n'
+                  '<a href="https://qiwi.me/b9ea24a2-7fb0-4094-9b30-fc128ff35c64">QIWI</a>\n'
+                  'Банковская карта: <code>5106 2110 1622 4243</code>'
     },
     'en': {},
     'uz': {},

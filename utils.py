@@ -318,6 +318,8 @@ def ban_user(msg):
             reply_markup = kb,
             parse_mode = 'HTML'
         )    
+    else:
+        not_enought_rights(msg)
 
 def kick_user(msg):
     if check_status(msg):
@@ -335,6 +337,8 @@ def kick_user(msg):
             ),
             parse_mode = 'HTML'
         )
+    else:
+        not_enought_rights(msg)
 
 def read_only(msg):
     if have_args(msg):

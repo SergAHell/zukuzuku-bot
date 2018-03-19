@@ -560,6 +560,95 @@ def new_update(msg, end_time):
         cursor.execute(sql)
         conn.commit()
     new_content(msg)
+    update_chat_stats(msg)
+    update_user_stats(msg)
+
+def update_user_stats(msg):
+    user_id = msg.from_user.id
+    chat_id = msg.chat.id
+    chat_name = msg.chat.title
+    user_name = msg.from_user.first_name
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        current_updates = get_user_messages_count(user_id, chat_id)
+        sql = 'SELECT * FROM `most_active_users` WHERE `user_id` = %s AND `chat_id` = %s'
+        cursor.execute(sql, (user_id, chat_id))
+        res = cursor.fetchone()
+        if res is None:
+            sql = 'INSERT INTO `most_active_users` (`user_id`, `user_name`, `chat_id`, `chat_name`, `amount`) VALUES (%s, %s, %s, %s, %s)'
+            cursor.execute(sql, (user_id, user_name, chat_id, chat_name, current_updates))
+            conn.commit()
+        else:
+            sql = 'UPDATE `most_active_users` SET `user_name` = %s, `amount` = %s WHERE `user_id` = %s'
+            cursor.execute(sql, (user_name, current_updates, user_id))
+            conn.commit()
+        
+
+def get_user_messages_count(user_id, chat_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT COUNT(user_id) FROM `proceeded_messages` WHERE `chat_id` = "{chat_id}" AND `user_id` = "{user_id}"'.format(
+            chat_id = chat_id,
+            user_id = user_id
+        )
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        return res['COUNT(user_id)']
+
+def update_chat_stats(msg):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        current_updates = get_chat_updates_count(msg.chat.id)
+        sql = 'SELECT * FROM `most_popular_chats` WHERE `chat_id` = "{chat_id}"'.format(
+            chat_id = msg.chat.id
+        )
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        if res is None:
+            sql = 'INSERT INTO `most_popular_chats` (`updates_count`, `chat_id`, `chat_name`, `last_update`) VALUES ("{updates}", "{chat_id}", "{chat_name}", "{last_update}")'.format(
+                updates = current_updates,
+                chat_id = msg.chat.id,
+                chat_name = escape_string(msg.chat.title),
+                last_update = msg.date
+            )
+            cursor.execute(sql)
+            try:
+                conn.commit()
+            except Exception as e:
+                logging.error(e)
+                logging.error(sql)
+        else:
+            sql = 'UPDATE `most_popular_chats` SET `updates_count` = "{updates}", `chat_name` = "{chat_name}", `last_update` = "{last_update}" WHERE `chat_id` = "{chat_id}"'.format(
+                updates = current_updates,
+                chat_name = escape_string(msg.chat.title),
+                last_update = msg.date,
+                chat_id = msg.chat.id
+            )
+            cursor.execute(sql)
+            try:
+                conn.commit()
+            except Exception as e:
+                logging.error(e)
+                logging.error(sql)
+
+def get_chat_updates_count(chat_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT COUNT(chat_id) FROM `proceeded_updates` WHERE `chat_id` = "{chat_id}"'.format(
+            chat_id = chat_id
+        )
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        return int(res['COUNT(chat_id)'])
+
+def get_most_popular_chats():
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `most_popular_chats` WHERE `chat_id` = "-1001303648604"'
+        cursor.execute(sql)
+        res = cursor.fetchone()
+        r = ujson.dumps(res)
+        return r
 
 def get_file_size(msg):
     res = 0
@@ -597,6 +686,7 @@ def get_file_id(msg):
         res = msg.voice.file_id
     return res
 
+
 def new_message(msg):
     with DataConn(db) as conn:
         cursor = conn.cursor()
@@ -609,10 +699,22 @@ def new_message(msg):
         cursor.execute(sql)
         conn.commit()
 
+def new_member(msg):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'INSERT INTO `new_chat_members` (`user_id`, `chat_id`, `joined_chat_at`) VALUES ("{user_id}", "{chat_id}", "{joined_chat_at}")'.format(
+            user_id = msg.new_chat_member.id,
+            chat_id = msg.chat.id,
+            joined_chat_at = msg.date
+        )
+        cursor.execute(sql)
+        conn.commit()
 
 def new_content(msg):
     if msg.content_type == 'text':
         new_message(msg)
+    elif msg.content_type == 'new_chat_members':
+        new_member(msg)
     else:
         try:
             with DataConn(db) as conn:
@@ -627,5 +729,5 @@ def new_content(msg):
                 cursor.execute(sql)
                 conn.commit()
         except Exception as e:
-            print(e)
-            print(sql)
+            logging.error(e)
+            logging.error(sql)
