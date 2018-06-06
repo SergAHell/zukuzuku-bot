@@ -2,7 +2,6 @@
 
 import requests
 import config
-import schedule
 import api
 import time
 
@@ -26,15 +25,6 @@ def check():
         print(e)
         pass
 
-def deleting():
-    try:
-        api.delete_pending()
-    except Exception as e:
-        print(e)
-
-schedule.every(5).seconds.do(check)
-schedule.every(7).days.do(deleting)
-
 while True:
-    schedule.run_pending()
-    time.sleep(1)
+    check()
+    time.sleep(5)

@@ -1,11 +1,11 @@
 # coding: utf8
 
 token = '495038140:AAFtv5DxvaxKzUluCnApOaWkM5hfxATzYQU'
-test_token = '533794679:AAHRFlYOqRgzUvI_YoFd7Z5G1IgOY2iY6hc'
+test_token = '540995016:AAE3gkF92NlC91t-i3jQCfbIZQ8gz9eqMWE'
 
 adminID = 303986717
 
-reports_group_id = -195841461
+reports_group_id = -1001215197780
 channel_ID = -1001384235254
 check_text = -1001209675599
 
@@ -22,11 +22,30 @@ available_languages = [
 ]
 
 available_attachments = [
-    'audio'
+    'audio',
     'photo',
     'voice',
-    ''
+    'sticker',
+    'document',
+    'video',
+    'video_note',
+    'location',
+    'contact',
+    'text'
 ]
+
+available_attachments_str = {
+    'audio': 'Удалять аудио{}',
+    'photo': 'Удалять фотографии{}',
+    'voice': 'Удалять аудиосообщения{}',
+    'sticker': 'Удалять стикеры{}',
+    'document': 'Удалять файлы{}',
+    'video': 'Удалять видео{}',
+    'video_note': 'Удалять видеосообщения{}',
+    'location': 'Удалять геолокации{}',
+    'contact': 'Удалять контакты{}',
+    'text': 'Удалять текстовые сообщения{}',
+}
 
 restricted_characters_replace = {
     '<': '&lt;',
@@ -42,42 +61,81 @@ languages = {
 
 default_group_settings = {
     'language': 'ru',
-    'get_notifications': '1',
+    'get_notifications': True,
+    'restrict_new': False,
     'greeting': {
-        'is_enabled': '0',
-        'text': 'no_notification_f883edc218bff19b8c943fe397cc83895ce169c5',
+        'is_enabled': True,
+        'text': 'Добро пожаловать в чат {chat_title}, <a href="tg://user?id={new_user_id}">{new_user_firstname}</a>',
+        'delete_timer': 15
+    },
+    'rules': {
+        'is_enabled': True,
+        'text': 'Стандартные правила, для смены используйте команду /set_rules',
+        'delete_timer': 15
     },
     'deletions': {
-        'url': '0',
-        'system': '0',
+        'url': False,
+        'system': False,
+        'forwards': False,
         'files': {
-            'photo': '0',
-            'voice': '0',
-            'videos': '0',
-            'stickers': '0',
-            'forwards': '0',
+            'audio': False,
+            'photo': False,
+            'voice': False,
+            'document': False,
+            'video': False,
+            'video_note': False,
+            'location': False,
+            'contact': False,
+            'text': False,
+            'sticker': False
         }
     },
-    'warns': '3',
-    'kick_bots': '0'
+    'restrictions': {
+        'read_only': False,
+        'for_time': 1,
+        'admins_only': True
+    },
+    'warns': {
+        'count': 3,
+        'action': 2,
+        'for_time': 1
+    },
+    'kick_bots': False,
+    'silent_mode': True,
+    'logs_channel': {
+        'is_on': False,
+        'chat_id': 0
+    }
+}
+
+warns_states = [
+    'Ничего',
+    'Кик',
+    'Бан',
+    'Read-only на сутки'
+]
+
+new_users = {
+    False: 'новенького',
+    True: 'администраторов'
 }
 
 default_user_settings = {
     'language': 'no_language_set',
-    'get_notifications': '1'
+    'get_notifications': True
 }
 
 settings_statuses = {
-    '0': '❌',
-    '1': '✅'
+    False: '❌',
+    True: '✅'
 }
 
 settings_states = {
-    '0': '1',
-    '1': '0'
+    False: True,
+    True: False
 }
 
-host = '5.9.178.83'
+host = '31.202.128.8'
 user = 'zukuzuku'
-password = 'i3dGu5451hBFZR6R'
+password = 'ZiyjKpUjphGneEqp'
 db = 'zukuzuku'

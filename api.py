@@ -49,6 +49,7 @@ class DataConn:
         self.conn.close()
         if exc_val:
             raise
+            
 db = DB(
     host = config.host,
     user = config.user,
@@ -105,7 +106,7 @@ def register_admins(msg):
                     i.status
                 )
                 cursor.execute(sql)
-                conn.commit()
+                conn.commit
         
 
 def ban_sticker(msg, sticker_id):
@@ -365,20 +366,23 @@ def set_user_param(user_id, column, state):
 def get_group_params(chat_id):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT `settings` FROM `chats` WHERE `chat_id` = {}'.format(chat_id)
+        sql = 'SELECT * FROM `chats` WHERE `chat_id` = "{}"'.format(chat_id)
         cursor.execute(sql)
         res = cursor.fetchone()
-        return ujson.loads(res['settings'])
+        try:
+            return ujson.loads(res['settings'])
+        except Exception as e:
+            print(sql)
+            print(e)
+            return None
+
 
 def change_group_params(chat_id, new_params):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = '''UPDATE `chats` SET `settings` = '{params}' WHERE `chat_id` = {chat_id}'''.format(
-            params = new_params,
-            chat_id = chat_id
-        )
+        sql = 'UPDATE `chats` SET `settings` = %s WHERE `chat_id` = %s'
         try:
-            cursor.execute(sql)
+            cursor.execute(sql, (new_params, chat_id))
             conn.commit()
         except Exception as e:
             print(e)
@@ -456,13 +460,27 @@ def set_warns(user_id, chat_id, warns):
         cursor.execute(sql)
         conn.commit()
 
-
-def get_all():
+def get_chats():
     with DataConn(db) as conn:
         cursor = conn.cursor()
         sql = 'SELECT * FROM `chats` ORDER BY `registration_time` ASC'
         cursor.execute(sql)
-        return cursor.fetchall()
+        res = cursor.fetchall()
+        return res
+
+def get_all():
+    all_chats = []
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `chats` ORDER BY `registration_time` ASC'
+        cursor.execute(sql)
+        res = cursor.fetchall()
+        all_chats.extend(res)
+        sql = 'SELECT * FROM `users` ORDER BY `registration_time` ASC'
+        cursor.execute(sql)
+        res = cursor.fetchall()
+        all_chats.extend(res)
+        return all_chats
 
 def change_p(group_id, db_id):
     with DataConn(db) as conn:
@@ -557,11 +575,23 @@ def new_update(msg, end_time):
             proceeding_time = end_time*1000,
             curr_time = int(time.time())
         )
-        cursor.execute(sql)
-        conn.commit()
-    new_content(msg)
-    update_chat_stats(msg)
-    update_user_stats(msg)
+        try:
+            cursor.execute(sql)
+            conn.commit()
+        except Exception as e:
+            logging.error(e)
+    try:
+        new_content(msg, end_time)
+    except Exception as e:
+        logging.error(e)
+    try:
+        update_chat_stats(msg)
+    except Exception as e:
+        logging.error(e)
+    try:
+        update_user_stats(msg)
+    except Exception as e:
+        logging.error(e)
 
 def update_user_stats(msg):
     user_id = msg.from_user.id
@@ -579,21 +609,23 @@ def update_user_stats(msg):
             cursor.execute(sql, (user_id, user_name, chat_id, chat_name, current_updates))
             conn.commit()
         else:
-            sql = 'UPDATE `most_active_users` SET `user_name` = %s, `amount` = %s WHERE `user_id` = %s'
-            cursor.execute(sql, (user_name, current_updates, user_id))
+            sql = 'UPDATE `most_active_users` SET `user_name` = %s, `amount` = %s WHERE `user_id` = %s AND `chat_id` = %s'
+            cursor.execute(sql, (user_name, current_updates, user_id, chat_id))
+            sql = 'UPDATE `most_active_users` SET `chat_name` = %s WHERE `chat_id` = %s'
+            cursor.execute(sql, (chat_name, chat_id))
             conn.commit()
         
 
 def get_user_messages_count(user_id, chat_id):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT COUNT(user_id) FROM `proceeded_messages` WHERE `chat_id` = "{chat_id}" AND `user_id` = "{user_id}"'.format(
+        sql = 'SELECT `amount` FROM `most_active_users` WHERE `chat_id` = "{chat_id}" AND `user_id` = "{user_id}"'.format(
             chat_id = chat_id,
             user_id = user_id
         )
         cursor.execute(sql)
         res = cursor.fetchone()
-        return res['COUNT(user_id)']
+        return res['amount']
 
 def update_chat_stats(msg):
     with DataConn(db) as conn:
@@ -631,15 +663,15 @@ def update_chat_stats(msg):
                 logging.error(e)
                 logging.error(sql)
 
-def get_chat_updates_count(chat_id):
+def get_chat_updates_count(chat_id):    
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'SELECT COUNT(chat_id) FROM `proceeded_updates` WHERE `chat_id` = "{chat_id}"'.format(
+        sql = 'SELECT `updates_count` FROM `most_popular_chats` WHERE `chat_id` = "{chat_id}"'.format(
             chat_id = chat_id
         )
         cursor.execute(sql)
         res = cursor.fetchone()
-        return int(res['COUNT(chat_id)'])
+        return int(res['updates_count'])
 
 def get_most_popular_chats():
     with DataConn(db) as conn:
@@ -687,13 +719,17 @@ def get_file_id(msg):
     return res
 
 
-def new_message(msg):
+def new_message(msg, end_time):
+    user_id = msg.from_user.id
+    chat_id = msg.chat.id
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'INSERT INTO `proceeded_messages` (`user_id`, `chat_id`, `content_type`) VALUES ("{user_id}", "{chat_id}", "{cont_type}")'.format(
-            user_id = msg.from_user.id,
-            chat_id = msg.chat.id,
+        sql = 'INSERT INTO `proceeded_messages` (`user_id`, `chat_id`, `msg_time`, `used_time`, `proceeded_at`, `content_type`) VALUES ("{user_id}", "{chat_id}", "{msg_time}", "{proceeding_time}", "{curr_time}", "{cont_type}")'.format(
+            user_id = user_id,
+            chat_id = chat_id,
             msg_time = msg.date,
+            proceeding_time = end_time*1000,
+            curr_time = int(time.time()),
             cont_type = msg.content_type
         )
         cursor.execute(sql)
@@ -710,10 +746,9 @@ def new_member(msg):
         cursor.execute(sql)
         conn.commit()
 
-def new_content(msg):
-    if msg.content_type == 'text':
-        new_message(msg)
-    elif msg.content_type == 'new_chat_members':
+def new_content(msg, end_time):
+    new_message(msg, end_time)
+    if msg.content_type == 'new_chat_members':
         new_member(msg)
     else:
         try:
@@ -731,3 +766,19 @@ def new_content(msg):
         except Exception as e:
             logging.error(e)
             logging.error(sql)
+
+def get_chat_users(chat_id, limit):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT * FROM `most_active_users` WHERE `chat_id` = "{chat_id}" ORDER BY `amount` DESC LIMIT {limit}'.format(chat_id = chat_id, limit = limit)
+        cursor.execute(sql)
+        r = cursor.fetchall()
+        return r
+
+def get_chat_users_count(chat_id):
+    with DataConn(db) as conn:
+        cursor = conn.cursor()
+        sql = 'SELECT COUNT(user_id) FROM `most_active_users` WHERE `chat_id` = "{chat_id}" ORDER BY `amount` DESC'.format(chat_id = chat_id)
+        cursor.execute(sql)
+        r = cursor.fetchone()
+        return r['COUNT(user_id)']

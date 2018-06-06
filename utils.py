@@ -4,7 +4,7 @@ import hashlib
 import logging
 import random
 import re
-import sqlite3
+
 import time
 
 import pymysql
@@ -32,12 +32,11 @@ report_info = logging.getLogger('reports')
 print('Список логгеров создан')
 
 logging.basicConfig(
-                    format='%(filename)s [LINE:%(lineno)-3d]# %(levelname)-8s - %(name)-9s [%(asctime)s] - %(message)-50s ',
+                    format='##%(filename)s [LINE:%(lineno)-3d]# %(levelname)-8s - %(name)-9s [%(asctime)s] - %(message)-50s ',
                     datefmt='%m/%d/%Y %I:%M:%S %p',
                     filename = 'logs.txt',
                     level = logging.INFO
                     )
-
 
 ############################################################
 ############################################################
@@ -102,7 +101,7 @@ def check_super_user(user_id):
         return True
     else:
         return False
-
+        
 def update_chat_members(msg):
     user_id = msg.new_chat_member.id
     chat_id = msg.chat.id
@@ -235,12 +234,12 @@ def del_sticker(msg):
 
 def set_greeting(msg, greeting):
     params = api.get_group_params(msg.chat.id)
-    params['greeting']['is_enabled'] = '1'
+    params['greeting']['is_enabled'] = True
     params['greeting']['text'] = greeting
-    api.change_group_params(msg.chat.id, params)
+    api.change_group_params(msg.chat.id, ujson.dumps(params))
 
-def get_greeting(msg):
-    r = api.get_group_params(msg.chat.id)
+def get_greeting(chat_id):
+    r = api.get_group_params(chat_id)
     return r['greeting']['text']
 
 def check_greeting(text):
@@ -248,24 +247,26 @@ def check_greeting(text):
         bot.send_message(
             config.check_text,
             text, 
-            parse_mode='Markdown'
+            parse_mode='HTML'
         )
         return True
     except Exception as e:
         return False
 
-def standart_greeting(msg):
-    key = random.choice(text.group_messages['ru']['greetings_file_id'])
-    bot.send_photo(
-        msg.chat.id,
-        key,
-        caption=text.group_messages['ru']['greetings'][key]
-    )
-
 def need_greeting(msg):
     r = api.get_group_params(msg.chat.id)
     return r['greeting']['is_enabled']
 
+def generate_welcome_text(msg):
+    example = api.get_group_params(msg.chat.id)['greeting']['text']
+    example = example.format(
+        new_user_id = msg.new_chat_member.id,
+        new_user_firstname = api.replacer(msg.new_chat_member.first_name),
+        new_user_username = msg.new_chat_member.username,
+        chat_id = msg.chat.id,  
+        chat_title = api.replacer(msg.chat.title)
+    )
+    return example
 
 ############################################################
 ############################################################
@@ -278,22 +279,26 @@ def need_greeting(msg):
 
 def check_status(msg):
     res = False
-    admins = bot.get_chat_administrators(msg.chat.id)
-    for i in admins:
-        if i.user.id == msg.from_user.id:
+    try:
+        admins = bot.get_chat_administrators(msg.chat.id)
+        for i in admins:
+            if i.user.id == msg.from_user.id:
+                res = True
+        if msg.from_user.id == 303986717:
             res = True
-    if msg.from_user.id == 303986717:
-        res = True
+    except Exception as e:
+        logging.error(e)
     return res
 
 def check_status_button(c):
-    msg = c.message
+    chat_id = parse_chat_id(c)
+    user_id = c.from_user.id
     res = False
-    admins = bot.get_chat_administrators(msg.chat.id)
+    admins = bot.get_chat_administrators(chat_id)
     for i in admins:
-        if i.user.id == c.from_user.id:
+        if i.user.id == user_id:
             res = True
-    if c.from_user.id == 303986717:
+    if user_id == 303986717:
         res = True
     return res
     
@@ -323,26 +328,46 @@ def ban_user(msg):
 
 def kick_user(msg):
     if check_status(msg):
-        bot.kick_chat_member(
-            msg.chat.id,
-            msg.reply_to_message.from_user.id,
-            until_date = str(time.time() + 31)
-        )
-        bot.unban_chat_member(msg.chat.id, msg.reply_to_message.from_user.id)
-        bot.reply_to(msg, text.group_commands[get_group_lang(msg)]['users']['kick'].format(
-            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
-            user_id = msg.reply_to_message.from_user.id,
-            admin_name = api.replacer(msg.from_user.first_name),
-            admin_id = msg.from_user.id
-            ),
-            parse_mode = 'HTML'
-        )
+        if msg.reply_to_message:
+            bot.kick_chat_member(
+                msg.chat.id,
+                msg.reply_to_message.from_user.id,
+                until_date = str(time.time() + 31)
+            )
+            bot.unban_chat_member(msg.chat.id, msg.reply_to_message.from_user.id)
+            bot.reply_to(msg, text.group_commands[get_group_lang(msg)]['users']['kick'].format(
+                user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+                user_id = msg.reply_to_message.from_user.id,
+                admin_name = api.replacer(msg.from_user.first_name),
+                admin_id = msg.from_user.id
+                ),
+                parse_mode = 'HTML'
+            )
+        else:
+            usr = bot.get_chat_member(
+                msg.chat.id,
+                parse_arg(msg)[1]
+            )
+            bot.kick_chat_member(
+                msg.chat.id,
+                usr.user.id,
+                until_date = str(time.time() + 31)
+            )
+            bot.unban_chat_member(msg.chat.id, usr.user.id)
+            bot.reply_to(msg, text.group_commands[get_group_lang(msg)]['users']['kick'].format(
+                user_name = api.replacer(usr.user.first_name),
+                user_id = usr.user.id,
+                admin_name = api.replacer(msg.from_user.first_name),
+                admin_id = msg.from_user.id
+                ),
+                parse_mode = 'HTML'
+            )
     else:
         not_enought_rights(msg)
 
 def read_only(msg):
     if have_args(msg):
-        ban_time = parse_time(parse_arg(msg))
+        ban_time = parse_time(parse_arg(msg)[1])
     else:
         ban_time = 60
     bot.restrict_chat_member(
@@ -408,6 +433,28 @@ def unban_user(msg, user_id):
             text.group_commands[get_group_lang(msg)]['errors']['not_restricted']
         )
 
+def unban_user_button(c):
+    user_id = parse_user_id(c)
+    chat_id = parse_chat_id(c)
+    user = bot.get_chat_member(
+        chat_id,
+        user_id
+    )
+    if user.status in ['restricted']:
+        bot.restrict_chat_member(
+            chat_id,
+            user_id,
+            can_send_media_messages=True,
+            can_add_web_page_previews=True,
+            can_send_messages=True,
+            can_send_other_messages=True
+        )
+    else:
+        bot.send_message(
+            chat_id,
+            text.group_commands[get_group_lang(c.message)]['errors']['not_restricted'],
+            parse_mode = 'HTML'
+        )
 
 def new_warn(msg):
     user_id = msg.reply_to_message.from_user.id
@@ -420,7 +467,9 @@ def new_warn(msg):
         user_id = user_id,
         chat_id = chat_id
     )
-    max_warns = int(api.get_group_params(msg.chat.id)['warns'])
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton(text = 'Удалить предупреждения', callback_data = 'warns_del::{chat_id}::{user_id}'.format(user_id = user_id, chat_id = chat_id)))
+    max_warns = int(api.get_group_params(msg.chat.id)['warns']['count'])
     bot.send_message(
         msg.chat.id,
         text.group_commands[get_group_lang(msg)]['users']['warn'].format(
@@ -429,11 +478,21 @@ def new_warn(msg):
             current_warns = curr,
             max_warns = max_warns
         ),
-        parse_mode = 'HTML'
+        parse_mode = 'HTML',
+        reply_markup = kb
     )
+    settings = api.get_group_params(chat_id)['warns']['action']
     if curr >= max_warns:
-        kick_user_warns(msg, max_warns)
+        if settings == 0:
+            pass
+        elif settings == 1:
+            kick_user_warns(msg, max_warns)
+        elif settings == 2:
+            ban_user_warns(msg, max_warns)
+        elif settings == 3:
+            ro_user_warns(msg, max_warns)    
         api.zeroing_warns(user_id, chat_id)
+        
 
 ############################################################
 ############################################################
@@ -456,17 +515,24 @@ def new_warn(msg):
 ############################################################
 
 def new_update(msg, end_time):
-    api.new_update(msg, end_time)
+    try:
+        api.new_update(msg, end_time)
+    except Exception as e:
+        logging.error(e)
 
 def to_bool(in_str):
-    if int(in_str) == 1:
+    if in_str == 'True':
         return True
     else:
         return False
 
 def is_restricted(msg):
-    if msg.content_type in ['photo', 'voice', 'stickers']:
-        return to_bool(api.get_group_params(msg.chat.id)['deletions']['files'][msg.content_type])
+    chat_id = msg.chat.id
+    try:
+        return api.get_group_params(chat_id)['deletions']['files'][msg.content_type]
+    except Exception as e:
+        print(e)
+        print(api.get_group_params(chat_id))
 
 def have_args(msg):
     command_ends_at = msg.entities[0].length
@@ -476,8 +542,14 @@ def have_args(msg):
         return False
 
 def parse_arg(msg):
-    words = re.split(' ', msg.text)
-    return words[1]
+    words = msg.text.split()
+    return words
+
+def parse_chat_id(c):
+    return int(c.data.split('::')[1])
+
+def parse_user_id(c):
+    return int(c.data.split('::')[2])
 
 def kick_user_warns(msg, max_warns):
     bot.kick_chat_member(
@@ -499,26 +571,58 @@ def kick_user_warns(msg, max_warns):
             parse_mode='HTML'
         )
 
-def change_state_deletions_main(msg, column):
-    settings = api.get_group_params(msg.chat.id)
+def ban_user_warns(msg, max_warns):
+    bot.kick_chat_member(
+        msg.chat.id,
+        msg.reply_to_message.from_user.id,
+        until_date=str(time.time() + 1)
+        )
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands[get_group_lang(msg)]['users']['kicked_warns'].format(
+            user_id = msg.reply_to_message.from_user.id,
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+            count_warns = max_warns
+            ),
+            parse_mode='HTML'
+        )
+
+def ro_user_warns(msg, max_warns):
+    bot.restrict_chat_member(
+        msg.chat.id,
+        msg.reply_to_message.from_user.id,
+        until_date=str(time.time() + 86400)
+        )
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands[get_group_lang(msg)]['users']['ro_warns'].format(
+            user_id = msg.reply_to_message.from_user.id,
+            user_name = api.replacer(msg.reply_to_message.from_user.first_name),
+            count_warns = max_warns
+            ),
+            parse_mode='HTML'
+        )
+
+def change_state_deletions_main(chat_id, column):
+    settings = api.get_group_params(chat_id)
     curr_state = settings['deletions'][column]
     new_state = config.settings_states[curr_state]
     settings['deletions'][column] = new_state
-    api.change_group_params(msg.chat.id, ujson.dumps(settings))
+    api.change_group_params(chat_id, ujson.dumps(settings))
 
-def change_state_deletions_files(msg, column):
-    settings = api.get_group_params(msg.chat.id)
+def change_state_deletions_files(chat_id, column):
+    settings = api.get_group_params(chat_id)
     curr_state = settings['deletions']['files'][column]
     new_state = config.settings_states[curr_state]
     settings['deletions']['files'][column] = new_state
-    api.change_group_params(msg.chat.id, ujson.dumps(settings))
+    api.change_group_params(chat_id, ujson.dumps(settings))
 
-def change_state_main(msg, column):
-    settings = api.get_group_params(msg.chat.id)
+def change_state_main(chat_id, column):
+    settings = api.get_group_params(chat_id)
     curr_state = settings[column]
     new_state = config.settings_states[curr_state]
     settings[column] = new_state
-    api.change_group_params(msg.chat.id, ujson.dumps(settings))
+    api.change_group_params(chat_id, ujson.dumps(settings))
 
 def check_for_urls(msg):
     signal = False
@@ -530,8 +634,56 @@ def check_for_urls(msg):
         logging.error(e)
     return signal
 
+def check_for_mentions(msg):
+    signal = False
+    signal = False
+    try:
+        for i in msg.entities:
+            if i.type == 'mention':
+                signal = True
+    except Exception as e:
+        logging.error(e)
+    return signal
+
+def is_channel_mention(mention):
+    try:
+        bot.get_chat_members_count(mention)
+        return True
+    except Exception:
+        return False
+
 def get_hash(stri):
     return hashlib.sha1(stri.encode()).hexdigest()
+
+def get_chat_info(chat_id):
+    return bot.get_chat(chat_id)
+
+def get_user_info(chat_id, user_id):
+    return bot.get_chat_member(chat_id, user_id)
+
+def get_chat_users(chat_id):
+    users = api.get_chat_users(chat_id)
+    res = []
+    for i in users:
+        res.append(i['user_id'])
+    return res
+    
+def create_get_all(chat_id):
+    chat_obj = utils.get_chat_info(msg.chat.id)
+    users_list = api.get_chat_users(msg.chat.id, 400)
+    mes = ''
+    for i in users_list:
+        try:
+            a = bot.get_chat_member(msg.chat.id, i['user_id'])
+            if a.user.username:
+                mes = mes + ' @' + a.user.username
+        except Exception:
+            pass
+    return mes
+    
+    
+        
+
 
 ############################################################
 ############################################################
@@ -559,3 +711,4 @@ def no_args(msg):
         text.group_commands[get_group_lang(msg)]['errors']['no_args_provided'],
         parse_mode='HTML'
     )
+

@@ -1,6 +1,6 @@
 #coding: utf8
 
-import sqlite3
+
 import telebot
 import logging
 import config
