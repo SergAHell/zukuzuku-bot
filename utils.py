@@ -4,7 +4,7 @@ import hashlib
 import logging
 import random
 import re
-
+from md5 import md5
 import time
 
 import pymysql
@@ -17,7 +17,7 @@ import settings
 import text
 import ujson
 
-bot = telebot.TeleBot(token = config.token)
+bot = telebot.TeleBot(token = secret_config.token)
 
 if __name__ == '__main__':
     log_name = 'logs.txt'
@@ -242,7 +242,7 @@ def get_greeting(chat_id):
     r = api.get_group_params(chat_id)
     return r['greeting']['text']
 
-def check_greeting(text):
+def check_text(text):
     try:
         bot.send_message(
             config.check_text,
@@ -267,6 +267,24 @@ def generate_welcome_text(msg):
         chat_title = api.replacer(msg.chat.title)
     )
     return example
+
+def generate_rules_text(msg):
+    example = api.get_group_params(msg.chat.id)['rules']['text']
+    example = example.format(
+        new_user_id = msg.new_chat_member.id,
+        new_user_firstname = api.replacer(msg.new_chat_member.first_name),
+        new_user_username = msg.new_chat_member.username,
+        chat_id = msg.chat.id,  
+        chat_title = api.replacer(msg.chat.title)
+    )
+    return example
+
+def set_rules(msg, rules):
+    params = api.get_group_params(msg.chat.id)
+    params['rules']['is_enabled'] = True
+    params['rules']['text'] = rules
+    api.change_group_params(msg.chat.id, ujson.dumps(params))
+
 
 ############################################################
 ############################################################
@@ -504,6 +522,24 @@ def new_warn(msg):
 ############################################################
 
 
+############################################################
+############################################################
+
+############################################################
+#             #
+#   Voteban   #
+#             #
+############################################################
+
+def new_voteban(msg):
+    victim = msg.reply_to.from_user
+    chat_id = msg.chat.id
+    vote_hash = md5(str(chat_id) + str(victim.id)).hexdigest()
+    r = api.new_voteban(chat_id, victim.id, vote_hash)
+    return r
+
+def set_voteban_votes_count(vote_hash, votes_count):
+    api.set_voteban_info('votes_count', votes_count, vote_hash)
 
 ############################################################
 ############################################################
@@ -681,9 +717,28 @@ def create_get_all(chat_id):
             pass
     return mes
     
-    
+def delete_msg(chat_id, message_id):
+    bot.delete_message(
+        chat_id,
+        message_id
+    )
         
+def get_voteban_count(c):
+    group_id = c.message.chat.id
+    vote_id = c.message.data.split('::')[1]
 
+def get_mention(txt, mention_obj):
+    return txt[mention_obj.offset:mention_obj.offset+mention_obj.length:]
+
+def balance_buttons(texts):
+    kb = types.ReplyKeyboardMarkup(row_width=2)
+    for i in range(0, len(texts)-1, 2):
+        btn = types.KeyboardButton(text = texts[i][0])
+        btn1 = types.KeyboardButton(text = texts[i+1][0])
+        kb.add(btn, btn1)
+    if len(texts) % 2 == 1:
+        kb.add(types.KeyboardButton(text = texts[-1][0]))
+    return kb
 
 ############################################################
 ############################################################
@@ -695,7 +750,7 @@ def create_get_all(chat_id):
 ############################################################
 
 def not_enought_rights(msg):
-    bot.send_message(
+    r = bot.send_message(
         msg.chat.id,
         text.group_commands[get_group_lang(msg)]['errors']['not_enough_rights'],
         parse_mode='HTML'
@@ -704,11 +759,15 @@ def not_enought_rights(msg):
         msg.chat.id,
         msg.message_id
     )
+    t = Timer(15, delete_msg, (chat_id, c.message.message_id))
+    t.start()
 
 def no_args(msg):
-    bot.send_message(
+    r = bot.send_message(
         msg.chat.id,
         text.group_commands[get_group_lang(msg)]['errors']['no_args_provided'],
         parse_mode='HTML'
     )
+    t = Timer(15, delete_msg, (chat_id, c.message.message_id))
+    t.start()
 

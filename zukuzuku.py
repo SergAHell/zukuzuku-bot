@@ -15,14 +15,15 @@ from telebot import types
 import api
 import cherrypy
 import config
+import secret_config
 import settings
 import text
 import ujson
 import utils
 from aiohttp import web
 
-WEBHOOK_HOST = '31.202.128.8'
-WEBHOOK_PORT = 88  # 443, 80, 88 или 8443 (порт должен быть открыт!)
+WEBHOOK_HOST = 'xxx.xxx.xxx.xxx'
+WEBHOOK_PORT = 8443  # 443, 80, 88 или 8443 (порт должен быть открыт!)
 # На некоторых серверах придется указывать такой же IP, что и выше
 WEBHOOK_LISTEN = '0.0.0.0'
 
@@ -30,11 +31,11 @@ WEBHOOK_SSL_CERT = './webhook_cert.pem'  # Путь к сертификату
 WEBHOOK_SSL_PRIV = './webhook_pkey.pem'  # Путь к приватному ключу
 
 WEBHOOK_URL_BASE = "https://%s:%s" % (WEBHOOK_HOST, WEBHOOK_PORT)
-WEBHOOK_URL_PATH = "/%s/" % (config.token)
+WEBHOOK_URL_PATH = "/%s/" % (secret_config.token)
 
 start_time = int(time.time())
 
-bot = telebot.TeleBot(token=config.token, threaded=True)
+bot = telebot.TeleBot(token = secret_config.token, threaded=True)
 
 telebot_logger = logging.getLogger('telebot')
 sqlite_info = logging.getLogger('sqlite')
@@ -70,7 +71,7 @@ async def handle(request):
     else:
         return web.Response(status=403)
 
-app.router.add_post('/{token}/', handle)
+app.router.add_post('/{token}/', handle) 
 
 def create_user_language_keyboard():
     lang_keyboard = types.InlineKeyboardMarkup()
@@ -79,13 +80,6 @@ def create_user_language_keyboard():
     lang_keyboard.add(types.InlineKeyboardButton(text="O'zbek", callback_data='uz_lang'))
     lang_keyboard.add(types.InlineKeyboardButton(text='Українська', callback_data='ukr_lang'))
     return lang_keyboard
-
-
-def delete_msg(chat_id, message_id):
-    bot.delete_message(
-        chat_id,
-        message_id
-    )
 
 def group_setting(chat_id):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
@@ -197,17 +191,28 @@ def delete_settings(chat_id):
     keyboard.add(btn)
     return keyboard
 
+def generate_leave_kb(msg):
+    chat_id = msg.chat.id
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    btn = types.InlineKeyboardButton(text = 'Да, выйди из чата', callback_data='leave_cancel::{chat_id}'.format(chat_id = chat_id))
+    keyboard.add(btn)
+    btn = types.InlineKeyboardButton(text = 'Нет, останься', callback_data='leave_confirm::{chat_id}'.format(chat_id = chat_id))
+    keyboard.add(btn)
+    return keyboard
+
 @bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == config.channel_ID)
 def bot_broadcast(msg):
     bot.forward_message(config.adminID, msg.chat.id, msg.forward_from_message_id)
 
-@bot.channel_post_handler(content_types = ['text'], func = lambda msg: msg.chat.id != config.channel_ID and msg.chat.type == 'channel')
+
+@bot.message_handler(commands = ['leave'], func = lambda msg: msg.chat.type != 'private' and utils.check_status(msg))
 def bot_leave(msg):
-    bot.leave_chat(
-        msg.chat.id
-    )
-
-
+    bot.send_message(
+        msg.chat.id,
+        text.group_commands[utils.get_group_lang(msg)]['leave']['question'],
+        reply_markup = generate_leave_kb(msg),
+        parse_mode = 'HTML'
+    )  
 
 @bot.message_handler(commands = ['settings'], func = lambda msg: msg.chat.type == 'supergroup')
 def bot_answ(msg):
@@ -266,7 +271,7 @@ def bot_set_text(msg):
     message = msg
     if len(msg.text) not in [9, 21]:
         new_greeting = msg.text[len(msg.text):msg.entities[0].length:-1][::-1]
-        if utils.check_greeting(new_greeting):
+        if utils.check_text(new_greeting):
             utils.set_greeting(msg, new_greeting)
             bot.send_message(
                 msg.chat.id,
@@ -321,7 +326,7 @@ def bot_ban_me_please(msg):
 def bot_lang(msg):
     start_time = time.time()
     bot.send_message(
-        msg.chat.id,
+        msg.chat.id,    
         text.user_messages['start'],
         reply_markup=create_user_language_keyboard()
     )
@@ -334,7 +339,7 @@ def bot_ping(msg):
         msg.chat.id,
         text.user_messages['ru']['commands']['ping'].format(
             unix_time = datetime.datetime.time(datetime.datetime.now()),
-            working_time = round((time.time()-msg.date), 3),
+            working_time = round((time.time()-msg.date), 3)+1,
             uptime_sec = int(time.time()-start_time)
         ),
         reply_to_message_id=msg.message_id,
@@ -383,7 +388,7 @@ def bot_users_new(msg):
                 reply_markup = unban_new_user_kb(msg),
                 parse_mode = 'HTML'
             )
-            t = Timer(api.get_group_params(msg.chat.id)['restrictions']['for_time']*3600, delete_msg, (msg.chat.id, r.message_id))
+            t = Timer(api.get_group_params(msg.chat.id)['restrictions']['for_time']*3600, utils.delete_msg, (msg.chat.id, r.message_id))
             t.start()
         if msg.new_chat_member.is_bot and api.get_group_params(msg.chat.id)['kick_bots']:
             bot.kick_chat_member(
@@ -416,7 +421,7 @@ def bot_users_new(msg):
                     utils.generate_welcome_text(msg), 
                     parse_mode='HTML'
                 )
-                t = Timer(api.get_group_params(msg.chat.id)['greeting']['delete_timer'], delete_msg, (msg.chat.id, r.message_id))
+                t = Timer(api.get_group_params(msg.chat.id)['greeting']['delete_timer'], utils.delete_msg, (msg.chat.id, r.message_id))
                 t.start()
     
     utils.new_update(msg, time.time()-start_time)
@@ -454,12 +459,14 @@ def bot_report(msg):
             bot.send_message(
                 i.user.id,
                 text.reports_messages['report']['to_admin'].format(
-                    group_name = api.replacer(msg.chat.title)
+                    group_name = api.replacer(msg.chat.title),
+                    user_id = msg.from_user.id,
+                    user_name = api.replacer(msg.from_user.first_name)
                 ),
                 parse_mode='HTML'
             )
         except Exception as e:
-            pass
+            print(e)
     bot.reply_to(
         msg,
         text.reports_messages['report']['to_user'],
@@ -488,7 +495,7 @@ def bot_reregister(msg):
         api.change_group_params(msg.chat.id, ujson.dumps(config.default_group_settings))
     bot.send_message(
         msg.chat.id,
-        text.group_messages[utils.get_group_lang]['registration'],
+        text.group_messages[utils.get_group_lang(msg)]['registration'],
         parse_mode = 'HTML'
     )
 
@@ -549,8 +556,6 @@ def bot_help(msg):
         text.user_messages[utils.get_user_lang(msg)]['help'],
         parse_mode='HTML'
         )
-    t = Timer(15, delete_msg, (msg.chat.id, r.message_id))
-    t.start()
     utils.new_update(msg, time.time()-start_time)
 
 @bot.message_handler(commands=['about'], func=lambda msg: msg.chat.type == 'private')
@@ -588,6 +593,14 @@ def bot_get_id(msg):
         msg.chat.id
     )
 
+@bot.message_handler(commands = ['voteban'])
+def bot_voteban(msg):
+    utils.new_voteban(msg)
+    bot.send_message(
+        msg.chat.id,
+        text.
+    )
+
 @bot.message_handler(commands = ['get_users'], func = lambda msg: msg.chat.type != 'private')
 def bot_get_users(msg):
     start_time = time.time()
@@ -604,19 +617,19 @@ def bot_get_users(msg):
     for i in users_list:
         summ = summ + int(i['amount'])
     counter = 0
-    mes = text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['title'].format(
+    mes = text.group_commands[utils.get_group_lang(msg)]['get_users']['title'].format(
         chat_name = chat_obj.title,
     )
     for i in users_list:
         counter += 1
-        mes = mes + text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['body_nofity'].format(
+        mes = mes + text.group_commands[utils.get_group_lang(msg)]['get_users']['body_notify'].format(
             user_number = counter,
             user_id = i['user_id'],
             user_name = api.replacer(i['user_name']),
             user_count = i['amount'],
             percent = round(int(i['amount'])/summ*100, 2)
         )    
-    mes = mes + text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['end'].format(
+    mes = mes + text.group_commands[utils.get_group_lang(msg)]['get_users']['end'].format(
         users_count = api.get_chat_users_count(msg.chat.id),
         messages_count = summ,
         used_time = round((time.time()-start_time), 3),
@@ -630,12 +643,12 @@ def bot_get_users(msg):
         )
         bot.reply_to(
             msg,
-            text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['chat_response']['success']
+            text.group_commands[utils.get_group_lang(msg)]['chat_response']['success']
         )
     except Exception:
         bot.send_message(
             msg.chat.id,
-            text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['chat_response']['fault']
+            text.group_commands[utils.get_group_lang(msg)]['chat_response']['error']
         )
     utils.new_update(msg, time.time()-start_time)
 
@@ -650,14 +663,48 @@ def bot_username_all(msg):
         )
         bot.reply_to(
             msg,
-            text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['chat_response']['success']
+            text.user_messages[utils.get_group_lang(msg)]['commands']['chat_response']['success']
         )
     except Exception:
         bot.send_message(
             msg.chat.id,
-            text.user_messages[utils.get_group_lang(msg)]['commands']['get_users']['chat_response']['fault']
+            text.user_messages[utils.get_group_lang(msg)]['commands']['chat_response']['error']
         )
     
+@bot.message_handler(commands = ['set_rules'], func = lambda msg: utils.check_status(msg))
+def bot_set_rules(msg):
+    start_time = time.time()
+    message = msg
+    if len(msg.text) not in [9, 21]:
+        new_rules = msg.text[len(msg.text):msg.entities[0].length:-1][::-1]
+        if utils.check_text(new_rules):
+            utils.set_rules(msg, new_rules)
+            bot.send_message(
+                msg.chat.id,
+                'Правила изменены'
+            )
+        else:
+            bot.send_message(
+                msg.chat.id,
+                text = 'Правила составлены неверно'
+            )
+    utils.new_update(msg, time.time()-start_time)
+
+@bot.message_handler(commands = ['rules'], func = lambda msg: msg.chat.type != 'private')
+def bot_get_rules(msg):
+    start_time = time.time()
+    try:
+        bot.send_message(
+            msg.from_user.id,
+            utils.generate_rules_text(msg),
+            parse_mode = 'HTML'
+        )
+    except Exception:
+        bot.reply_to(
+            msg,
+            text = ''
+        )
+    utils.new_update(msg, time.time()-start_time)
 
 @bot.message_handler(commands = ['reset_settings'], func = lambda msg: msg.chat.type != 'private')
 def bot_reset_settings(msg):
@@ -673,7 +720,7 @@ def bot_reset_settings(msg):
         )
         
 
-@bot.message_handler(content_types=['text'], func = lambda msg: msg.chat.type == 'supergroup')
+@bot.message_handler(content_types=['text'], func = lambda msg: msg.chat.type != 'private')
 def bot_check_text(msg):
     start_time = time.time()
     msg_text = msg.text
@@ -726,7 +773,7 @@ def bot_text(msg):
     utils.new_update(msg, time.time()-start_time)
 
 
-@bot.message_handler(content_types = ['audio', 'document', 'photo', 'sticker', 'video', 'video_note', 'voice', 'location', 'contact'], func = lambda msg: msg.chat.type == 'supergroup')
+@bot.message_handler(content_types = ['audio', 'document', 'photo', 'sticker', 'video', 'video_note', 'voice', 'location', 'contact'])
 def testt(msg):
     start_time = time.time()
     print(utils.is_restricted(msg))
@@ -1065,7 +1112,7 @@ def unban_new_user(c):
                 chat_id = c.message.chat.id,
                 message_id = c.message.message_id
             )
-            t = Timer(api.get_group_params(chat_id)['greeting']['delete_timer'], delete_msg, (chat_id, c.message.message_id))
+            t = Timer(api.get_group_params(chat_id)['greeting']['delete_timer'], utils.delete_msg, (chat_id, c.message.message_id))
             t.start()
         else:
             bot.answer_callback_query(
@@ -1097,7 +1144,7 @@ def unban_new_user(c):
                     chat_id = c.message.chat.id,
                     message_id = c.message.message_id
                 )
-                t = Timer(api.get_group_params(chat_id)['greeting']['delete_timer'], delete_msg, (chat_id, c.message.message_id))
+                t = Timer(api.get_group_params(chat_id)['greeting']['delete_timer'], utils.delete_msg, (chat_id, c.message.message_id))
                 t.start()
         else:
             bot.answer_callback_query(
@@ -1238,6 +1285,39 @@ def reset_settings_button(c):
                 c.message.chat.id,
                 'Сброс отменен'
             )
+
+@bot.callback_query_handler(func = lambda c: c.data.startswith('leave_'))
+def bot_leave_cb(c):
+    if utils.check_status_button(c):
+        if c.data.endswith('confirm'):
+            bot.delete_message(
+                c.message.chat.id,
+                c.message.message_id
+            )
+            bot.send_message(
+                c.message.chat.id,
+                text.group_commands[utils.get_group_lang(c.message)]['leave']['accepted']
+            )
+            bot.leave_chat(
+                c.message.chat.id
+            )
+        else:
+            bot.send_message(
+                c.message.chat.id,
+                text.group_commands[utils.get_group_lang(c.message)]['leave']['cancelled']
+            )
+            bot.delete_message(
+                c.message.chat.id,
+                c.message.message_id
+            )
+
+# @bot.callback_query_handler(func = lambda c: c.data.startswith('settings_captcha'))
+# def change_captcha_settings(c):
+#     chat_id = utils.parse_chat_id(c)
+#     if utils.check_status_button(c):
+#         settings = api.get_group_params(chat_id)
+#         settings['']
+#         api.change_group_params(chat_id, )
 
 # Вебхук
 
