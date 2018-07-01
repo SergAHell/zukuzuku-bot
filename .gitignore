@@ -4,3 +4,6 @@
 pyTelegramBotAPI
 .vscode/
 __pycache__/
+config.py
+webhook_cert.pem
+webhook_pkey.pem

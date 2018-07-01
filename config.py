@@ -1,13 +1,12 @@
-# coding: utf8
+# -*- coding: utf-8 -*-
 
-token = '495038140:AAFtv5DxvaxKzUluCnApOaWkM5hfxATzYQU'
-test_token = '540995016:AAE3gkF92NlC91t-i3jQCfbIZQ8gz9eqMWE'
+import ujson
 
-adminID = 303986717
+adminID = 0
 
-reports_group_id = -1001215197780
-channel_ID = -1001384235254
-check_text = -1001209675599
+reports_group_id = 0
+channel_ID = 0
+check_text = 0
 
 restricted_characters = [
     '<',
@@ -93,7 +92,11 @@ default_group_settings = {
     'restrictions': {
         'read_only': False,
         'for_time': 1,
-        'admins_only': True
+        'admins_only': True,
+    },
+    'captcha': {
+        'is_on': False,
+
     },
     'warns': {
         'count': 3,
@@ -135,7 +138,8 @@ settings_states = {
     True: False
 }
 
-host = '31.202.128.8'
-user = 'zukuzuku'
-password = 'ZiyjKpUjphGneEqp'
-db = 'zukuzuku'
+available_commands = [
+    '/'
+]
+
+
