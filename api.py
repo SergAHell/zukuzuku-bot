@@ -11,7 +11,6 @@ import telebot
 
 import config
 import secret_config
-import settings
 import text
 import ujson
 import utils
@@ -88,8 +87,8 @@ def replacer(text):
 
 
 
-def register_admins(msg):
-    chat_id = msg.chat.id
+def register_admins(chat_obj):
+    chat_id = chat_obj.id
     with DataConn(db) as conn:
         cursor = conn.cursor()
         for i in bot.get_chat_administrators(chat_id):
@@ -98,7 +97,7 @@ def register_admins(msg):
             res = cursor.fetchone()
             if res is None:
                 sql = 'INSERT INTO `chat_admins` (`chat_id`, `chat_name`, `admin_name`, `admin_id`, `status`) VALUES (%s, %s, %s, %s, %s)'
-                cursor.execute(sql, (chat_id, msg.chat.title, i.user.first_name, i.user.id, i.status))
+                cursor.execute(sql, (chat_id, chat_obj.title, i.user.first_name, i.user.id, i.status))
                 conn.commit()
         
 
@@ -150,48 +149,48 @@ def unban_sticker(msg, sticker_id):
         else:
             return False
 
-def get_creator(msg):
+def get_creator(chat_obj):
     """
     Возвращает объект создателя чата\n
     :param msg:\n
     """
-    creator = bot.get_chat_administrators(msg.chat.id)[0].user
-    for i in bot.get_chat_administrators(msg.chat.id):
+    creator = bot.get_chat_administrators(chat_obj.id)[0].user
+    for i in bot.get_chat_administrators(chat_obj.id):
         if i.status == 'creator':
             creator = i.user
     return creator
 
-def register_new_user(call, lang):
+def register_new_user(user_obj, lang):
     """
     Регистрирует нового пользователя\n
-    :param call:\n
+    :param user_obj:\n
     :param lang:\n
     """
     with DataConn(db) as conn:
         cursor = conn.cursor()
         sql = 'SELECT * FROM `users` WHERE `user_id` = %s'
-        cursor.execute(sql, (call.from_user.id, ))
+        cursor.execute(sql, (user_obj.id, ))
         res = cursor.fetchone()
         sec_name = 'None'
         try:
-            sec_name = call.from_user.second_name
+            sec_name = user_obj.second_name
         except Exception as e:
             sec_name = 'None'
             logging.error(e)
         if res is None:
             sql = 'INSERT INTO `users` (`user_id`, `registration_time`, `first_name`, `second_name`, `language`) VALUES (%s, %s, %s, %s, %s)'
-            cursor.execute(sql, (call.from_user.id, int(time.time()), call.from_user.first_name, sec_name, lang))
+            cursor.execute(sql, (user_obj.id, int(time.time()), user_obj.first_name, sec_name, lang))
             conn.commit()
             sql = 'INSERT INTO `user_settings` (`user_id`, `registration_time`, `language`) VALUES (%s, %s, %s)'
-            cursor.execute(sql, (call.from_user.id, int(time.time()), lang))
+            cursor.execute(sql, (user_obj.id, int(time.time()), lang))
             conn.commit()
-            utils.notify_new_user(call)
+            utils.notify_new_user(user_obj, lang)
         else:
             sql = 'UPDATE `user_settings` SET `language` = %s WHERE `user_id` = %s'
-            cursor.execute(sql, (lang, call.from_user.id))
+            cursor.execute(sql, (lang, user_obj.id))
             conn.commit()
 
-def register_new_chat(msg):
+def register_new_chat(chat_obj):
     """
     Регистрирует новый чат\n
     :param msg:\n
@@ -199,21 +198,25 @@ def register_new_chat(msg):
     with DataConn(db) as conn:
         cursor = conn.cursor()
         sql = 'SELECT * FROM chats WHERE `chat_id` = %s'
-        cursor.execute(sql, (msg.chat.id, ))
+        cursor.execute(sql, (chat_obj.id, ))
         res = cursor.fetchone()
         if res is None:
-            creator = get_creator(msg)
-            sql = 'INSERT INTO `chats` (`chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+            creator = get_creator(chat_obj)
+            sql = 'INSERT INTO `chats` (`chat_id`, `chat_name`, `creator_name`, `creator_id`, `chat_members_count`, `registration_time`, `settings`) VALUES (%s, %s, %s, %s, %s, %s, %s)'
             try:
-                cursor.execute(sql, (msg.chat.id, msg.chat.title, creator.first_name, creator.id, bot.get_chat_members_count(msg.chat.id), int(time.time()), ujson.dumps(config.default_group_settings)))
+                cursor.execute(sql, (chat_obj.id, chat_obj.title, creator.first_name, creator.id, bot.get_chat_members_count(chat_obj.id), int(time.time()), ujson.dumps(config.default_group_settings)))
                 conn.commit()
             except Exception as e:
-                logging.error('error')
+                logging.error('error: {}'.format(e))
                 logging.error(sql)
-            utils.notify_new_chat(msg)
-            register_admins(msg)
+            utils.notify_new_chat(chat_obj)
+            bot.send_message(
+                chat_obj.id,
+                text.group_commands['ru']['registration']
+            )
+            register_admins(chat_obj)
         else:
-            register_admins(msg)
+            register_admins(chat_obj)
 
 def get_users_count():
     """
@@ -280,6 +283,7 @@ def get_group_params(chat_id):
             ujson.loads(res['settings'])['get_notifications']
             return ujson.loads(res['settings'])
         except Exception as e:
+            register_new_chat(bot.get_chat(chat_id))
             change_group_params(chat_id, ujson.dumps(config.default_group_settings))
             bot.send_message(
                 chat_id,
@@ -291,7 +295,6 @@ def get_group_params(chat_id):
             )
             return ujson.loads(res['settings'])['get_notifications']
 
-
 def change_group_params(chat_id, new_params):
     with DataConn(db) as conn:
         cursor = conn.cursor()
@@ -302,6 +305,7 @@ def change_group_params(chat_id, new_params):
         except Exception as e:
             print(e)
             print(sql)
+
 
 def is_user_new(msg):
     with DataConn(db) as conn:
@@ -400,7 +404,7 @@ def escape_string(value):
 def update_stats_bot(count):
     with DataConn(db) as conn:
         cursor = conn.cursor()
-        sql = 'INSERT INTO `stats` (`amount`, `check_time`) VALUES (%s, %s)
+        sql = 'INSERT INTO `stats` (`amount`, `check_time`) VALUES (%s, %s)'
         cursor.execute(sql, (count, int(time.time())))
         conn.commit()
 
@@ -444,7 +448,7 @@ def new_update(msg, end_time):
         cursor = conn.cursor()
         sql = 'INSERT INTO `proceeded_updates` (`user_id`, `chat_id`, `msg_time`, `used_time`, `proceeded_at`) VALUES (%s, %s, %s, %s, %s)'
         try:
-            cursor.execute(sql, user_id, chat_id, msg.date, end_time*1000, int(time.time()))
+            cursor.execute(sql, (user_id, chat_id, msg.date, end_time*1000, int(time.time())))
             conn.commit()
         except Exception as e:
             logging.error(e)
@@ -488,7 +492,7 @@ def get_user_messages_count(user_id, chat_id):
     with DataConn(db) as conn:
         cursor = conn.cursor()
         sql = 'SELECT `amount` FROM `most_active_users` WHERE `chat_id` = %s AND `user_id` = %s'
-        cursor.execute(sql, *chat_id, user_id)
+        cursor.execute(sql, (chat_id, user_id))
         res = cursor.fetchone()
         return res['amount']
 
@@ -632,7 +636,8 @@ def update_voteban(vote_hash):
         cursor = conn.cursor()
         curr_votes = get_voteban_votes_count(vote_hash)
         utils.set_voteban_votes_count(vote_hash, curr_votes)
-        if utils.get_voteban_limit()
+        if utils.get_voteban_limit():
+            pass
 
 def get_voteban_votes_count(vote_hash):
     with DataConn(db) as conn:

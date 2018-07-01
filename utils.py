@@ -4,16 +4,17 @@ import hashlib
 import logging
 import random
 import re
-from md5 import md5
 import time
+from hashlib import md5
 
 import pymysql
+import requests
 import telebot
 from telebot import types
 
 import api
 import config
-import settings
+import secret_config
 import text
 import ujson
 
@@ -53,28 +54,28 @@ def new_referral(msg, referrer_id=303986717):
     r += 1 
     api.set_user_param(referrer_id, 'refs', r)
 
-def notify_new_user(call):
+def notify_new_user(user_obj, lang):
     bot.send_message(
-        config.reports_group_id,
+        secret_config.reports_group_id,
         text.service_messages['new_user'].format(
-            user_id = call.from_user.id,
-            user_name = api.replacer(call.from_user.first_name),
+            user_id = user_obj.id,
+            user_name = api.replacer(user_obj.first_name),
             user_amount = api.get_users_count(),
-            user_lang = config.languages[call.data[0:2]]
+            user_lang = config.languages[lang]
         ),
         parse_mode='HTML'
     )
 
-def notify_new_chat(msg):
-    creator = api.get_creator(msg)
+def notify_new_chat(chat_obj):
+    creator = api.get_creator(chat_obj)
     bot.send_message(
-        config.reports_group_id,
+        secret_config.reports_group_id,
         text.service_messages['new_chat'].format(
-            chat_name = msg.chat.title,
-            chat_id = msg.chat.id,
+            chat_name = chat_obj.title,
+            chat_id = chat_obj.id,
             admin_name = api.replacer(creator.first_name),
             admin_id = creator.id,
-            chat_users_amount = bot.get_chat_members_count(msg.chat.id),
+            chat_users_amount = bot.get_chat_members_count(chat_obj.id),
             chat_amount = api.get_chats_count()
         ), 
         parse_mode='HTML'
@@ -245,7 +246,7 @@ def get_greeting(chat_id):
 def check_text(text):
     try:
         bot.send_message(
-            config.check_text,
+            secret_config.check_text,
             text, 
             parse_mode='HTML'
         )
@@ -740,6 +741,11 @@ def balance_buttons(texts):
         kb.add(types.KeyboardButton(text = texts[-1][0]))
     return kb
 
+def get_my_ip():
+    url = 'http://ipinfo.io/ip'
+    s = str(requests.get(url = url).content)[2:-3:]
+    return s
+
 ############################################################
 ############################################################
 
@@ -770,4 +776,3 @@ def no_args(msg):
     )
     t = Timer(15, delete_msg, (chat_id, c.message.message_id))
     t.start()
-

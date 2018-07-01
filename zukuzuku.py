@@ -16,13 +16,12 @@ import api
 import cherrypy
 import config
 import secret_config
-import settings
 import text
 import ujson
 import utils
 from aiohttp import web
 
-WEBHOOK_HOST = 'xxx.xxx.xxx.xxx'
+WEBHOOK_HOST = utils.get_my_ip()
 WEBHOOK_PORT = 8443  # 443, 80, 88 или 8443 (порт должен быть открыт!)
 # На некоторых серверах придется указывать такой же IP, что и выше
 WEBHOOK_LISTEN = '0.0.0.0'
@@ -200,9 +199,9 @@ def generate_leave_kb(msg):
     keyboard.add(btn)
     return keyboard
 
-@bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == config.channel_ID)
+@bot.channel_post_handler(content_types=['text'], func = lambda msg: msg.chat.id == secret_config.channel_ID)
 def bot_broadcast(msg):
-    bot.forward_message(config.adminID, msg.chat.id, msg.forward_from_message_id)
+    bot.forward_message(secret_config.adminID, msg.chat.id, msg.forward_from_message_id)
 
 
 @bot.message_handler(commands = ['leave'], func = lambda msg: msg.chat.type != 'private' and utils.check_status(msg))
@@ -250,6 +249,7 @@ def bot_user_start(msg):
             text.user_messages['start'],
             reply_markup=create_user_language_keyboard()
             )
+        api.register_new_user(msg.from_user, 'ru')
     else:
         bot.send_message(msg.chat.id, text.user_messages[utils.get_user_lang(msg)]['start'])
     utils.new_update(msg, time.time()-start_time)
@@ -257,8 +257,7 @@ def bot_user_start(msg):
 @bot.message_handler(commands=['start'], func=lambda msg: msg.chat.type != 'private')
 def bot_group_start(msg):
     start_time = time.time()
-    message = msg
-    api.register_new_chat(msg)
+    api.register_new_chat(msg.chat)
     utils.new_update(msg, time.time()-start_time)
 
 @bot.message_handler(commands = ['get_logs'], func = lambda msg: msg.chat.id == -1001236256304 and utils.check_super_user(msg.from_user.id))
@@ -302,17 +301,18 @@ def bot_ban_me_please(msg):
                     msg.chat.id,
                     msg.from_user.id,
                     until_date=str(time.time() + ban_time))
-                bot.send_message(msg.chat.id, text.group_messages['ru']['ban_me_please'].format(
+                bot.send_message(msg.chat.id, text.group_commands[utils.get_group_lang(msg)]['ban_me_please'].format(
                     user_id = msg.from_user.id,
                     user_name = api.replacer(msg.from_user.first_name),
                     t = t
-                ), parse_mode = 'HTML')
+                ), 
+                parse_mode = 'HTML'
+            )
             else:
                 bot.send_message(
                     msg.chat.id,
-                    text.group_messages['ru']['user_is_admin'].format(
-                        admin_id = msg.from_user.id,
-                        admin_name = api.replacer(msg.from_user.first_name)
+                    text.group_commands[utils.get_group_lang(msg)]['errors']['prefix'].format(
+                        reason = text.group_commands[utils.get_group_lang(msg)]['errors']['reasons']['user_is_admin']
                     ),
                     parse_mode='HTML'
                 )
@@ -339,7 +339,7 @@ def bot_ping(msg):
         msg.chat.id,
         text.user_messages['ru']['commands']['ping'].format(
             unix_time = datetime.datetime.time(datetime.datetime.now()),
-            working_time = round((time.time()-msg.date), 3)+1,
+            working_time = round((time.time()-msg.date), 3),
             uptime_sec = int(time.time()-start_time)
         ),
         reply_to_message_id=msg.message_id,
@@ -350,10 +350,10 @@ def bot_ping(msg):
 
 @bot.message_handler(content_types=['new_chat_members'])
 def bot_users_new(msg):
-    api.register_new_chat(msg)
+    api.register_new_chat(msg.chat)
     start_time = time.time()
     message = msg
-    api.register_new_chat(msg)
+    api.register_new_chat(msg.chat)
     if api.get_group_params(msg.chat.id)['deletions']['system']:
         bot.delete_message(
             msg.chat.id,
@@ -369,7 +369,7 @@ def bot_users_new(msg):
             msg.chat.id
             )
     if msg.new_chat_member.id == 495038140:
-        api.register_new_chat(msg)
+        api.register_new_chat(msg.chat)
         api.change_group_params(msg.chat.id, ujson.dumps(config.default_group_settings))
     else:
         if api.get_group_params(msg.chat.id)['restrictions']['read_only']:
@@ -491,11 +491,11 @@ def bot_user_unban(msg):
 def bot_reregister(msg):
     start_time = time.time()
     if utils.check_status(msg):
-        api.register_new_chat(msg)
+        api.register_new_chat(msg.chat)
         api.change_group_params(msg.chat.id, ujson.dumps(config.default_group_settings))
     bot.send_message(
         msg.chat.id,
-        text.group_messages[utils.get_group_lang(msg)]['registration'],
+        text.group_commands[utils.get_group_lang(msg)]['registration'],
         parse_mode = 'HTML'
     )
 
@@ -593,13 +593,13 @@ def bot_get_id(msg):
         msg.chat.id
     )
 
-@bot.message_handler(commands = ['voteban'])
-def bot_voteban(msg):
-    utils.new_voteban(msg)
-    bot.send_message(
-        msg.chat.id,
-        text.
-    )
+# @bot.message_handler(commands = ['voteban'])
+# def bot_voteban(msg):
+#     utils.new_voteban(msg)
+#     bot.send_message(
+#         msg.chat.id,
+#         text.
+#     )
 
 @bot.message_handler(commands = ['get_users'], func = lambda msg: msg.chat.type != 'private')
 def bot_get_users(msg):
@@ -787,15 +787,15 @@ def testt(msg):
 # Кнопки
 
 @bot.callback_query_handler(func=lambda c: c.data.endswith('lang'))
-def change_language(call):
-    words = re.split('_', call.data)
+def change_language(c):
+    words = re.split('_', c.data)
     lang = words[0]
     bot.edit_message_text(
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        text=text.user_messages[lang]['chosen_language'])
-    api.register_new_user(call, lang)
-    utils.new_referral(call.message, referer)
+        chat_id = c.message.chat.id,
+        message_id = c.message.message_id,
+        text = text.user_messages[lang]['chosen_language'])
+    api.register_new_user(c.from_user, lang)
+    # utils.new_referral(call.message, referer)
 
 @bot.callback_query_handler(func = lambda c: c.data.startswith('get_notifications'))
 def notify_change(c):
@@ -1267,6 +1267,7 @@ def reset_settings_button(c):
     chat_id = utils.parse_chat_id(c)
     if utils.check_status_button(c):
         if c.data.startswith('reset_settings_confirmation'):
+            api.register_new_chat(c.message.chat)
             api.change_group_params(chat_id, ujson.dumps(config.default_group_settings))
             bot.send_message(
                 c.message.chat.id,

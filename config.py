@@ -2,12 +2,6 @@
 
 import ujson
 
-adminID = 0
-
-reports_group_id = 0
-channel_ID = 0
-check_text = 0
-
 restricted_characters = [
     '<',
     '>',
@@ -141,5 +135,3 @@ settings_states = {
 available_commands = [
     '/'
 ]
-
-

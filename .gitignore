@@ -7,3 +7,8 @@ __pycache__/
 config.py
 webhook_cert.pem
 webhook_pkey.pem
+secret_config.py
+*.txt
+*.pem
+broadcast.py
+filler.py
